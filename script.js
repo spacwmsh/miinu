@@ -473,7 +473,11 @@ function setupSmoothScrolling() {
 // Image lazy loading
 function setupImageLazyLoading() {
     const images = document.querySelectorAll('.menu-item img');
-    
+    images.forEach(img => {
+  img.loading = 'lazy';
+  img.decoding = 'async';
+});
+
     const imageObserver = new IntersectionObserver((entries, observer) => {
         entries.forEach(entry => {
             if (entry.isIntersecting) {
