@@ -470,13 +470,35 @@ function setupSmoothScrolling() {
     document.documentElement.style.scrollBehavior = 'smooth';
 }
 
-// Image lazy loading
+// Image lazy loading// Image lazy loading
 function setupImageLazyLoading() {
-    const images = document.querySelectorAll('.menu-item img');
-    images.forEach(img => {
-  img.loading = 'lazy';
-  img.decoding = 'async';
-});
+  const images = document.querySelectorAll('.menu-item img');
+  images.forEach((img) => {
+    img.setAttribute('loading', 'lazy');
+    img.setAttribute('decoding', 'async');
+
+    // انقل المسار الثقيل إلى data-src وأوقف التحميل المبدئي
+    if (!img.dataset.src && img.src) {
+      img.dataset.src = img.src;
+      img.src = 'data:image/gif;base64,R0lGODlhAQABAAAAACw='; // 1x1 placeholder
+    }
+  });
+
+  const imageObserver = new IntersectionObserver((entries, observer) => {
+    entries.forEach(entry => {
+      if (entry.isIntersecting) {
+        const img = entry.target;
+        if (img.dataset.src) {
+          img.src = img.dataset.src;
+          img.removeAttribute('data-src');
+        }
+        observer.unobserve(img);
+      }
+    });
+  });
+
+  images.forEach(img => imageObserver.observe(img));
+}
 
     const imageObserver = new IntersectionObserver((entries, observer) => {
         entries.forEach(entry => {
