@@ -23,6 +23,12 @@ document.addEventListener('DOMContentLoaded', function () {
   setupSmoothScrolling();
   setupImageLazyLoading();
   setupTouchGestures();
+  initializeTooltips();
+
+  // Add loading animation
+  showLoading();
+  // Hide loading after everything is ready
+  setTimeout(hideLoading, 1000);
 });
 
 // Initialize application
@@ -122,8 +128,8 @@ function setupEventListeners() {
   // Window resize
   window.addEventListener('resize', handleWindowResize);
 
-  // Scroll events (مخفّضة)
-  window.addEventListener('scroll', throttledScroll);
+  // Scroll events
+  window.addEventListener('scroll', handleScroll);
 }
 
 // Sidebar functions
@@ -300,7 +306,8 @@ function hideNoResultsMessage() {
 function navigateToCategory(categoryId) {
   const target = document.getElementById(categoryId);
   if (target) {
-    const headerHeight = document.querySelector('header').offsetHeight;
+    const header = document.querySelector('header');
+    const headerHeight = header ? header.offsetHeight : 0;
     const targetPosition = target.offsetTop - headerHeight - 20;
 
     window.scrollTo({
@@ -331,7 +338,6 @@ function openRating() {
 }
 
 function closeModal() {
-  if (!ratingModal) return;
   ratingModal.classList.remove('active');
   ratingModal.classList.add('hidden');
   document.body.style.overflow = 'auto';
@@ -349,8 +355,8 @@ function updateStarRating(rating) {
 }
 
 function resetRatingForm() {
-  const form = document.getElementById('ratingForm');
-  if (form) form.reset();
+  const ratingForm = document.getElementById('ratingForm');
+  if (ratingForm) ratingForm.reset();
   currentRating = 0;
   updateStarRating(0);
 }
@@ -412,7 +418,6 @@ function openLocation() {
 
   let mapUrl;
   if (isIOS) {
-    // استبدال &amp; بـ &
     mapUrl = `maps://maps.google.com/maps?daddr=${lat},${lng}&ll=`;
   } else if (isAndroid) {
     mapUrl = `geo:${lat},${lng}?q=${lat},${lng}(مطعم فاخر)`;
@@ -439,11 +444,11 @@ function toggleDeveloperInfo() {
 
 // Touch gestures
 function setupTouchGestures() {
-  let startX, startY, currentX, currentY;
-  let isScrolling = false;
-
   const navContainer = document.querySelector('nav ul');
   if (!navContainer) return;
+
+  let startX, startY, currentX, currentY;
+  let isScrolling = false;
 
   navContainer.addEventListener('touchstart', (e) => {
     startX = e.touches[0].clientX;
@@ -479,61 +484,42 @@ function setupSmoothScrolling() {
   document.documentElement.style.scrollBehavior = 'smooth';
 }
 
-/* =========================
-   Image lazy loading (سريع وآمن)
-   لا نستبدل src بـ GIF مطلقًا.
-   إن كانت الصور تستخدم data-src في الـHTML سنقوم بترقيتها عند الظهور.
-   وإن كانت تحمل src مباشرًا نكتفي بـ loading="lazy" و decoding="async".
-========================= */
+// Image lazy loading
 function setupImageLazyLoading() {
   const images = document.querySelectorAll('.menu-item img');
 
-  const supportsNativeLazy = 'loading' in HTMLImageElement.prototype;
-
   images.forEach((img) => {
-    // دائماً حسّن فك الترميز
+    img.setAttribute('loading', 'lazy');
     img.setAttribute('decoding', 'async');
-    // إن كان المتصفح يدعم التحميل الكسول أصلاً، فعّله
-    if (supportsNativeLazy) {
-      img.setAttribute('loading', 'lazy');
+
+    // انقل المسار الثقيل إلى data-src وأوقف التحميل المبدئي
+    if (!img.dataset.src && img.src) {
+      img.dataset.src = img.src;
+      img.src = 'data:image/gif;base64,R0lGODlhAQABAAAAACw='; // 1x1 placeholder
     }
   });
 
-  // راقب فقط الصور التي لديها data-src (إن وجدت)
-  if ('IntersectionObserver' in window) {
-    const io = new IntersectionObserver((entries, observer) => {
-      entries.forEach((entry) => {
-        if (!entry.isIntersecting) return;
+  const imageObserver = new IntersectionObserver((entries, observer) => {
+    entries.forEach((entry) => {
+      if (entry.isIntersecting) {
         const img = entry.target;
-        if (img.dataset && img.dataset.src) {
+        if (img.dataset.src) {
           img.src = img.dataset.src;
           img.removeAttribute('data-src');
         }
         observer.unobserve(img);
-      });
+      }
     });
+  });
 
-    images.forEach((img) => {
-      if (img.dataset && img.dataset.src) {
-        io.observe(img);
-      }
-    });
-  } else {
-    // متصفحات قديمة: حمّل فورًا إن وُجدت data-src
-    images.forEach((img) => {
-      if (img.dataset && img.dataset.src) {
-        img.src = img.dataset.src;
-        img.removeAttribute('data-src');
-      }
-    });
-  }
+  images.forEach((img) => imageObserver.observe(img));
 }
 
 // Keyboard navigation
 function handleKeyboardNavigation(e) {
   switch (e.key) {
     case 'Escape':
-      // أصلحنا الشرط: أغلق إن كانت مفتوحة
+      // أغلق العناصر المفتوحة فقط
       if (sidebar.classList.contains('open')) {
         closeSidebarFunc();
       }
@@ -574,10 +560,11 @@ function handleScroll() {
   const scrolled = window.pageYOffset;
 
   // Add shadow to header when scrolled
-  if (scrolled > 10) {
-    header.style.boxShadow = '0 4px 20px rgba(0, 0, 0, 0.15)';
-  } else {
-    header.style.boxShadow = '0 4px 20px rgba(0, 0, 0, 0.1)';
+  if (header) {
+    header.style.boxShadow =
+      scrolled > 10
+        ? '0 4px 20px rgba(0, 0, 0, 0.15)'
+        : '0 4px 20px rgba(0, 0, 0, 0.1)';
   }
 
   // Update active navigation link based on scroll position
@@ -627,7 +614,12 @@ function throttle(func, limit) {
 }
 
 // Performance optimizations
+const debouncedSearch = debounce(performSearch, 300);
 const throttledScroll = throttle(handleScroll, 100);
+
+// Replace original event listeners with optimized versions
+window.removeEventListener('scroll', handleScroll);
+window.addEventListener('scroll', throttledScroll);
 
 // Add loading states
 function showLoading() {
@@ -659,14 +651,14 @@ function hideLoading() {
 
 // Error handling
 window.addEventListener('error', function (e) {
-  console.error('JavaScript Error:', e.error);
+  console.error('JavaScript Error:', e.error || e.message || e);
   // In production, you might want to send this to a logging service
 });
 
 // Service Worker registration (for PWA features)
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', function () {
-    // مسار نسبي لتجنب التحميل من الجذر عند النشر داخل مجلد
+    // استخدم مسار نسبي لتفادي مشاكل النشر داخل مجلد فرعي
     navigator.serviceWorker
       .register('sw.js')
       .then(function () {
@@ -717,8 +709,9 @@ function trackEvent(eventName, eventData) {
 // Track user interactions
 document.addEventListener('click', function (e) {
   if (e.target.matches('.menu-item')) {
+    const titleEl = e.target.querySelector('h3');
     trackEvent('menu_item_click', {
-      item: e.target.querySelector('h3').textContent,
+      item: titleEl ? titleEl.textContent : 'unknown',
     });
   }
 });
@@ -759,16 +752,3 @@ function hideTooltip() {
     tooltip.remove();
   }
 }
-
-// Initialize everything when DOM is ready
-document.addEventListener('DOMContentLoaded', function () {
-  initializeTooltips();
-
-  // Add loading animation
-  showLoading();
-
-  // Hide loading after everything is ready
-  setTimeout(hideLoading, 1000);
-
-  // تم حذف رسالة الترحيب للمرة الأولى نهائيًا
-});
