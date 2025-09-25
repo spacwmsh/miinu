@@ -81,7 +81,8 @@ function setupEventListeners() {
   // Search functionality
   searchBtn.addEventListener('click', toggleSearchBar);
   clearSearch.addEventListener('click', clearSearchInput);
-  searchInput.addEventListener('input', handleSearch);
+  // اجعل البحث مُخفَّض الاستدعاء لمنع الضغط على الواجهة
+  searchInput.addEventListener('input', debouncedSearch);
   searchInput.addEventListener('keypress', function (e) {
     if (e.key === 'Enter') {
       e.preventDefault();
@@ -128,8 +129,8 @@ function setupEventListeners() {
   // Window resize
   window.addEventListener('resize', handleWindowResize);
 
-  // Scroll events
-  window.addEventListener('scroll', handleScroll);
+  // Scroll events (مُقيَّدة لتقليل العمل على التمرير) + passive
+  window.addEventListener('scroll', throttledScroll, { passive: true });
 }
 
 // Sidebar functions
@@ -223,11 +224,9 @@ function clearSearchInput() {
   searchInput.focus();
 }
 
+// صارت فورية، والـ debounce يتم عبر المستمع
 function handleSearch() {
-  clearTimeout(searchTimeout);
-  searchTimeout = setTimeout(() => {
-    performSearch();
-  }, 300);
+  performSearch();
 }
 
 function performSearch() {
@@ -238,7 +237,6 @@ function performSearch() {
     return;
   }
 
-  const menuItems = document.querySelectorAll('.menu-item');
   const categories = document.querySelectorAll('.category');
   let hasResults = false;
 
@@ -247,8 +245,8 @@ function performSearch() {
     const items = category.querySelectorAll('.menu-item');
 
     items.forEach((item) => {
-      const title = item.querySelector('h3').textContent.toLowerCase();
-      const description = item.querySelector('p').textContent.toLowerCase();
+      const title = item.querySelector('h3')?.textContent?.toLowerCase() || '';
+      const description = item.querySelector('p')?.textContent?.toLowerCase() || '';
 
       if (title.includes(query) || description.includes(query)) {
         item.style.display = 'block';
@@ -484,35 +482,42 @@ function setupSmoothScrolling() {
   document.documentElement.style.scrollBehavior = 'smooth';
 }
 
-// Image lazy loading
+// Image lazy loading (إصلاح رئيسي: عدم مسح src مطلقًا)
 function setupImageLazyLoading() {
   const images = document.querySelectorAll('.menu-item img');
 
   images.forEach((img) => {
+    // استفد من التحميل الكسول الأصلي
     img.setAttribute('loading', 'lazy');
     img.setAttribute('decoding', 'async');
-
-    // انقل المسار الثقيل إلى data-src وأوقف التحميل المبدئي
-    if (!img.dataset.src && img.src) {
-      img.dataset.src = img.src;
-      img.src = 'data:image/gif;base64,R0lGODlhAQABAAAAACw='; // 1x1 placeholder
+    // أعطِ المتصفح حرية ترتيب الأولويات
+    if ('fetchPriority' in img) {
+      img.fetchPriority = 'low';
     }
+
+    // fallback في حال فشل التحميل
+    img.addEventListener('error', () => {
+      // يمكنك وضع صورة بديلة هنا إذا رغبت
+      // img.src = 'fallback.jpg';
+    }, { once: true });
   });
 
-  const imageObserver = new IntersectionObserver((entries, observer) => {
-    entries.forEach((entry) => {
-      if (entry.isIntersecting) {
-        const img = entry.target;
-        if (img.dataset.src) {
-          img.src = img.dataset.src;
-          img.removeAttribute('data-src');
+  // مراقب خفيف لبدء التحميل مبكرًا قليلاً (لا يغيّر src)
+  if ('IntersectionObserver' in window) {
+    const imageObserver = new IntersectionObserver((entries, observer) => {
+      entries.forEach(({ isIntersecting, target }) => {
+        if (isIntersecting) {
+          // شجّع المتصفح على فك ترميز الصورة مبكرًا إن أمكن
+          if (typeof target.decode === 'function') {
+            target.decode().catch(() => {});
+          }
+          observer.unobserve(target);
         }
-        observer.unobserve(img);
-      }
-    });
-  });
+      });
+    }, { rootMargin: '200px 0px', threshold: 0.01 });
 
-  images.forEach((img) => imageObserver.observe(img));
+    images.forEach((img) => imageObserver.observe(img));
+  }
 }
 
 // Keyboard navigation
@@ -616,10 +621,6 @@ function throttle(func, limit) {
 // Performance optimizations
 const debouncedSearch = debounce(performSearch, 300);
 const throttledScroll = throttle(handleScroll, 100);
-
-// Replace original event listeners with optimized versions
-window.removeEventListener('scroll', handleScroll);
-window.addEventListener('scroll', throttledScroll);
 
 // Add loading states
 function showLoading() {
