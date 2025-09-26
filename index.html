@@ -1,719 +1,1385 @@
-<!DOCTYPE html>
-<html lang="ar">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>قائمة الطعام الإلكترونية - مطعم فاخر</title>
-    <meta name="description" content="قائمة طعام إلكترونية فاخرة تضم أشهى الأطباق من جميع الأصناف">
-    <meta name="theme-color" content="#667eea">
-    <link rel="manifest" href="manifest.json">
+/* =====================================================
+   Shared Data Helpers (localStorage based)
+===================================================== */
+/* افتح الصفحة دائماً من البداية */
+(function () {
+  try { if ('scrollRestoration' in history) history.scrollRestoration = 'manual'; } catch(e){}
+  // عند التحميل الأول
+  window.addEventListener('load', () => { window.scrollTo(0, 0); });
+  // عند الرجوع من الخلف/الكاش (Safari/Firefox)
+  window.addEventListener('pageshow', (e) => { if (e.persisted) window.scrollTo(0, 0); });
+})();
+const LS = {
+  get(key, def){ try{ return JSON.parse(localStorage.getItem(key)) ?? def; }catch{ return def; } },
+  set(key, val){ localStorage.setItem(key, JSON.stringify(val)); },
+};
+const nowISO = ()=> new Date().toISOString();
 
-    <!-- CSS -->
-    <link rel="preload" href="style.css" as="style">
-    <link rel="stylesheet" href="style.css">
+function seedIfNeeded(){
 
-    <!-- Icons / CDN Perf -->
-    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🍽️</text></svg>">
-    <link rel="dns-prefetch" href="//cdnjs.cloudflare.com">
-    <link rel="preconnect" href="https://cdnjs.cloudflare.com" crossorigin>
-    <link rel="preload" href="script.js" as="script">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
-</head>
-<body>
-    <!-- Sidebar -->
-    <div id="sidebar" class="sidebar">
-        <div class="sidebar-header">
-            <h2>🍽️ طاولتك</h2>
-            <button id="closeSidebar" class="close-btn">&times;</button>
+  // لا نُضيف بيانات تجريبية. فقط نضمن وجود المفاتيح كمصفوفات فارغة
+  if(!localStorage.getItem('categories')) LS.set('categories', []);
+  if(!localStorage.getItem('menuItems'))  LS.set('menuItems', []);
+
+  if(!localStorage.getItem('orders')) LS.set('orders', []);
+  if(!localStorage.getItem('notifications')) LS.set('notifications', []);
+  if(!localStorage.getItem('ratings')) LS.set('ratings', []);
+  if(!localStorage.getItem('userRated')) LS.set('userRated', {});
+  /* ✅ تهيئة الحجوزات للربط مع لوحة التحكم */
+  if(!localStorage.getItem('reservations')) LS.set('reservations', []);
+}
+seedIfNeeded();
+
+/* ==== إعدادات ساعات العمل العامة + دوال مساعدة للوقت (استخدمها في كل المواضع) ==== */
+const BUSINESS = { OPEN_MIN: 9*60, CLOSE_MIN: 25*60, BUFFER_MIN: 30 }; // 09:00 → 01:00 (+يوم) مع هامش 30د
+function hm2m(s){
+  if(!s) return 0;
+  const [h,m] = String(s).split(':').map(Number);
+  return (h*60 + (m||0))|0;
+}
+function m2hm(m){
+  m = ((m%1440)+1440)%1440; // طبّع إلى نطاق اليوم
+  const hh = String(Math.floor(m/60)).padStart(2,'0');
+  const mm = String(m%60).padStart(2,'0');
+  return `${hh}:${mm}`;
+}
+
+/* ==== Normalize image URL locally (works with http(s), data:, blob:, and storage paths) ==== */
+const DEFAULT_IMG =
+'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="800" height="560"><rect width="100%" height="100%" fill="#f3f4f6"/><text x="50%" y="50%" font-size="28" fill="#9ca3af" text-anchor="middle" dominant-baseline="middle">صورة افتراضية</text></svg>';
+
+function normalizeImgPublic(raw){
+  const s = String(raw ?? '').trim();
+  if (!s) return DEFAULT_IMG;
+
+  // URL جاهز للاستخدام
+  if (/^(https?:\/\/|data:)/i.test(s)) return s;   // (لا نقبل blob:)
+
+  // حماية من قيم خاطئة
+  if (s === '[object Object]' || /^[{\[]/.test(s)) return DEFAULT_IMG;
+
+  // حدّد البكت المناسب من النص إن وُجد، وإلا استخدم images
+  const hintedBucket =
+    /^menu-images\//i.test(s) ? 'menu-images' :
+    /^images\//i.test(s)      ? 'images'      : 'images';
+
+  const path = s.replace(/^(images|menu-images)\//i, '').replace(/^\/+/, '');
+  const safePath = path.split('/').map(encodeURIComponent).join('/');
+
+  // جرّب البناء عبر عميل Supabase إن كان متاحًا
+  try{
+    const urlObj = window.supabase?.storage?.from?.(hintedBucket)?.getPublicUrl?.(path);
+    const url = urlObj?.data?.publicUrl || '';
+    if (url) return url;
+  }catch(_){ }
+
+  // خطة احتياطية: نبني الرابط يدويًا
+  const base = (window.SUPABASE_URL || '').replace(/\/+$/,'');
+  if (base) return `${base}/storage/v1/object/public/${hintedBucket}/${safePath}`;
+
+  return DEFAULT_IMG;
+}
+
+/* ========== Global Modal Helper ========== */
+(function(){
+  const $ = (s)=>document.querySelector(s);
+  const Modal = {
+    root:null, title:null, body:null, actions:null, closeBtn:null,
+    ensure(){
+      if(this.root) return true;
+      this.root = $('#appModal');
+      if(!this.root) return false;
+      this.title   = $('#appModalTitle');
+      this.body    = $('#appModalBody');
+      this.actions = $('#appModalActions');
+      this.closeBtn= $('#appModalClose');
+      if(this.closeBtn) this.closeBtn.onclick = ()=>this.hide();
+      this.root.addEventListener('click', e=>{ if(e.target===this.root) this.hide(); });
+      document.addEventListener('keydown', e=>{ if(e.key==='Escape') this.hide(); });
+      return true;
+    },
+    show(title, html, btns){
+      if(!this.ensure()){ alert((html||'').toString().replace(/<[^>]+>/g,'')); return; }
+      this.title.textContent = title || '';
+      this.body.innerHTML = html || '';
+      this.actions.innerHTML = '';
+      (btns||[]).forEach(b=> this.actions.appendChild(b));
+      this.root.classList.add('open');
+      this.root.setAttribute('aria-hidden','false');
+    },
+    hide(){
+      if(!this.root) return;
+      this.root.classList.remove('open');
+      this.root.setAttribute('aria-hidden','true');
+    },
+    info(msg, title){
+      const ok = document.createElement('button');
+      ok.className='btn btn-primary'; ok.textContent='موافق';
+      ok.onclick = ()=> this.hide();
+      this.show(title||'إشعار', `<div class="small">${msg}</div>`, [ok]);
+    },
+    confirm(msg, title){
+      return new Promise((resolve)=>{
+        const yes = document.createElement('button'); yes.className='btn btn-primary'; yes.textContent='تأكيد';
+        const no  = document.createElement('button'); no.className='btn btn-ghost';   no.textContent='إلغاء';
+        yes.onclick=()=>{ this.hide(); resolve(true); };
+        no.onclick =()=>{ this.hide(); resolve(false);};
+        this.show(title||'تأكيد', `<div class="small">${msg}</div>`, [yes, no]);
+      });
+    }
+  };
+  window.Modal = Modal;
+})();
+
+/* =====================================================
+   Rendering the Menu
+===================================================== */
+const catPills       = document.querySelector('#catPills');
+const catRibbon      = document.querySelector('#catRibbon');
+const grid           = document.querySelector('#itemsGrid');
+const searchInput    = document.querySelector('#searchInput');
+const cartBtn        = document.querySelector('#cartBtn');   // قد يكون غير موجود
+const cartCount      = document.querySelector('#cartCount'); // قد يكون غير موجود
+const cartDrawer     = document.querySelector('#cartDrawer');
+const closeDrawerBtn = document.querySelector('#closeDrawer');
+const checkoutBtn    = document.querySelector('#checkoutBtn');
+const cartItemsEl    = document.querySelector('#cartItems');
+const cartTotalEl    = document.querySelector('#cartTotal');
+
+/* ===== FAB refs ===== */
+let cartFab       = document.querySelector('#cartFab');
+let cartFabCount  = document.querySelector('#cartFabCount');
+const fabTotalEl  = document.querySelector('#fabTotal'); // قد يكون موجودًا في HTML الجديد
+
+/* ===== Backdrop + Toast ===== */
+const backdrop = document.getElementById('backdrop');
+
+/* ---------- Inject minimal CSS for moving underline (إن لم يكن موجودًا في styles.css) ---------- */
+function injectUnderlineStyle(){
+  if(document.getElementById('catUnderlineStyle')) return;
+  const s = document.createElement('style');
+  s.id = 'catUnderlineStyle';
+  s.textContent = `
+    #catRibbon{ position:relative; }
+    #catRibbon .cat-underline{
+      position:absolute; bottom:4px; height:3px; background:var(--primary);
+      border-radius:999px; width:0; transform:translateX(0);
+      transition:transform .24s ease, width .24s ease; pointer-events:none;
+    }
+  `;
+  document.head.appendChild(s);
+}
+injectUnderlineStyle();
+
+/* ---------- Underline slider + Section spy ---------- */
+function ensureCatUnderline(){
+  if(!catRibbon) return null;
+  let u = catRibbon.querySelector('.cat-underline');
+  if(!u){
+    u = document.createElement('span');
+    u.className = 'cat-underline';
+    catRibbon.appendChild(u);
+  }
+  return u;
+}
+function moveCatUnderline(){
+  const u = ensureCatUnderline();
+  if(!u || !catRibbon) return;
+  const active = catRibbon.querySelector('.pill.active') || catRibbon.querySelector('.pill');
+  if(!active){ u.style.width='0px'; return; }
+  const w = active.offsetWidth;
+  const x = active.offsetLeft - catRibbon.scrollLeft; // تعويض سكرول أفقي للرِبن
+  u.style.width = w + 'px';
+  u.style.transform = `translateX(${x}px)`;
+}
+window.addEventListener('resize', moveCatUnderline);
+if(catRibbon){ catRibbon.addEventListener('scroll', moveCatUnderline, {passive:true}); }
+
+/* ===== حركة البداية: انقل السلايدر من "كل الأقسام" إلى التالي عند أول تحميل ===== */
+let didInitialKick = false;
+function kickUnderlineToNext(){
+  if(didInitialKick || !catRibbon) return;
+  const pills = Array.from(catRibbon.querySelectorAll('.pill'));
+  if(pills.length < 2) return;
+  // ابحث عن زر "كل الأقسام"
+  const first = pills.find(p => p.dataset.id === 'sections') || pills[0];
+  const idx   = pills.indexOf(first);
+  const next  = pills[idx + 1] || pills[1];
+  if(!next) return;
+
+  // فعّل الـ active بصريًا على التالي (لا نغيّر state.activeCat)
+  catRibbon.querySelectorAll('.pill').forEach(b => b.classList.toggle('active', b === next));
+  didInitialKick = true;
+  // حرّك السلايدر بعد تبديل الـ active لإظهار الأنيميشن
+  requestAnimationFrame(() => moveCatUnderline());
+}
+
+let sectionObserver = null;
+function setupSectionSpy(){
+  if(sectionObserver){ sectionObserver.disconnect(); sectionObserver = null; }
+  if(state.activeCat !== 'sections') return;
+
+  const sections = Array.from(document.querySelectorAll('.menu-section'));
+  if(sections.length === 0) return;
+
+  sectionObserver = new IntersectionObserver((entries)=>{
+    const vis = entries.filter(e=>e.isIntersecting).sort((a,b)=> b.intersectionRatio - a.intersectionRatio)[0];
+    if(!vis) return;
+    const catId = vis.target.id.replace('sec-','');
+
+    // حدّث شريط الأقسام
+    if(catRibbon){
+      catRibbon.querySelectorAll('.pill').forEach(btn=>{
+        btn.classList.toggle('active', btn.dataset.id === catId);
+      });
+      moveCatUnderline();
+    }
+    // حدّث قائمة الجانب
+    const side = document.querySelector('#sideCats');
+    if(side){
+      side.querySelectorAll('a').forEach(a=>{
+        a.classList.toggle('active', a.getAttribute('data-id') === catId);
+      });
+    }
+  }, { root:null, threshold:0.55 });
+
+  sections.forEach(sec=> sectionObserver.observe(sec));
+}
+
+/* Toast بسيط */
+const Toast = {
+  el: document.getElementById('appToast'),
+  show(msg='أُضيفت للسلة'){
+    if(!this.el){
+      this.el = document.createElement('div');
+      this.el.id = 'appToast'; this.el.className = 'toast';
+      document.body.appendChild(this.el);
+    }
+    this.el.textContent = msg;
+    this.el.classList.add('open');
+    clearTimeout(this._t);
+    this._t = setTimeout(()=> this.el.classList.remove('open'), 1400);
+  }
+};
+
+/* ===== Search Panel ===== */
+const searchToggle = document.querySelector('#searchToggle');
+const searchPanel  = document.querySelector('#searchPanel');
+const searchClose  = document.querySelector('#searchClose');
+
+function openSearchPanel(){
+  if(!searchPanel) return;
+  searchPanel.classList.add('open');
+  searchPanel.setAttribute('aria-hidden','false');
+  if(searchToggle) searchToggle.setAttribute('aria-expanded','true');
+  setTimeout(()=> searchInput && searchInput.focus(), 120);
+}
+
+/* ===== Hero: Reserve Modal =====
+   (تاريخ منفصل + وقت منفصل + نوع الحجز + ملاحظات + تحقق ذكي) */
+document.addEventListener('DOMContentLoaded', ()=>{
+  const reserveBtn = document.getElementById('reserveBtn');
+  if (!reserveBtn) return;
+
+  reserveBtn.addEventListener('click', ()=>{
+    const html = `
+      <form id="reserveForm" class="form-vertical" novalidate style="display:grid;gap:12px">
+        <div class="form-row">
+          <label class="label" for="rName">الاسم <span class="req">*</span></label>
+          <input id="rName" class="input-md" type="text" autocomplete="name" />
         </div>
-        <div class="sidebar-content">
-            <div class="sidebar-item" onclick="closeSidebarAndGoHome()">
-                <i class="fas fa-home"></i>
-                <span>الصفحة الرئيسية</span>
-            </div>
-            <div class="sidebar-item" onclick="openRating()">
-                <i class="fas fa-star"></i>
-                <span>تقييمك</span>
-            </div>
-            <div class="sidebar-item" onclick="showWorkingHours()">
-                <i class="fas fa-clock"></i>
-                <span>أوقات العمل</span>
-            </div>
-            <div class="sidebar-item" onclick="showAboutUs()">
-                <i class="fas fa-info-circle"></i>
-                <span>نبذة عنا</span>
-            </div>
-            <div class="sidebar-item" onclick="openLocation()">
-                <i class="fas fa-map-marker-alt"></i>
-                <span>الموقع</span>
-            </div>
-            <div class="social-links">
-                <a href="https://facebook.com" target="_blank"><i class="fab fa-facebook"></i></a>
-                <a href="https://instagram.com" target="_blank"><i class="fab fa-instagram"></i></a>
-                <a href="https://wa.me/966500000000" target="_blank"><i class="fab fa-whatsapp"></i></a>
-            </div>
-            <div class="sidebar-item dropdown-item developer-info-small" onclick="toggleDeveloperInfo()">
-                <i class="fas fa-code"></i>
-                <span>المصمم</span>
-                <i class="fas fa-chevron-down dropdown-arrow" id="developerArrow"></i>
-            </div>
-            <div class="developer-dropdown" id="developerDropdown">
-                <div class="developer-info-detailed">
-                    <div class="developer-avatar">
-                        <i class="fas fa-user-circle"></i>
-                    </div>
-                    <h4>sabah_alloufi </h4>
-                    <p class="developer-title">مطور مواقع ومصمم UI/UX</p>
-                    <div class="developer-contact">
-                        <div class="contact-item">
-                            <i class="fas fa-phone"></i>
-                            <span>+966 50 123 4567</span>
-                        </div>
-                    </div>
-                    <div class="developer-social">
-                        <a href="https://wa.me/905374342451" target="_blank" class="social-btn whatsapp">
-                            <i class="fab fa-whatsapp"></i>
-                        </a>
-                        <a href="https://facebook.com/Sabah.alloufi.2001" target="_blank" class="social-btn linkedin">
-                            <i class="fab fa-facebook"></i>
-                        </a>
-                        <a href="https://instagram.com/sabah_alloufi/" target="_blank" class="social-btn github">
-                            <i class="fab fa-instagram"></i>
-                        </a>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
 
-    <!-- Overlay -->
-    <div id="overlay" class="overlay" onclick="closeSidebar()"></div>
-
-    <header>
-        <div class="header-top">
-            <button id="menuBtn" class="menu-btn">
-                <i class="fas fa-bars"></i>
-            </button>
-            <h1>🍽️ قائمة طعام المطعم الفاخر</h1>
-            <div class="header-actions">
-                <button id="searchBtn" class="search-btn">
-                    <i class="fas fa-search"></i>
-                </button>
-            </div>
-        </div>
-        
-        <!-- Search Bar -->
-        <div id="searchBar" class="search-bar hidden">
-            <input type="text" id="searchInput" placeholder="ابحث في القائمة...">
-            <button id="clearSearch" class="clear-search">&times;</button>
+        <div class="form-row">
+          <label class="label" for="rPhone">رقم الجوال <span class="req">*</span></label>
+          <input id="rPhone" class="input-md" type="tel" inputmode="tel" placeholder="05xxxxxxxx" />
         </div>
 
-        <!-- Categories Dropdown -->
-        <div id="categoriesDropdown" class="categories-dropdown hidden">
-            <div class="category-item" data-category="breakfast">
-                <span>🍳 الفطور الصباحي</span>
-                <span class="count">6</span>
-            </div>
-            <div class="category-item" data-category="hot-appetizers">
-                <span>🔥 المقبلات الساخنة</span>
-                <span class="count">6</span>
-            </div>
-            <div class="category-item" data-category="cold-appetizers">
-                <span>🧊 المقبلات الباردة</span>
-                <span class="count">6</span>
-            </div>
-            <div class="category-item" data-category="salads">
-                <span>🥗 السلطات</span>
-                <span class="count">6</span>
-            </div>
-            <div class="category-item" data-category="soups">
-                <span>🍲 الشوربات</span>
-                <span class="count">6</span>
-            </div>
-            <div class="category-item" data-category="eastern">
-                <span>🍛 الأطباق الشرقية</span>
-                <span class="count">6</span>
-            </div>
-            <div class="category-item" data-category="western">
-                <span>🍝 الأطباق الغربية</span>
-                <span class="count">6</span>
-            </div>
-            <div class="category-item" data-category="grills">
-                <span>🔥 المشاوي</span>
-                <span class="count">6</span>
-            </div>
-            <div class="category-item" data-category="seafood">
-                <span>🐟 المأكولات البحرية</span>
-                <span class="count">6</span>
-            </div>
-            <div class="category-item" data-category="pasta">
-                <span>🍝 الباستا</span>
-                <span class="count">6</span>
-            </div>
-            <div class="category-item" data-category="pizza">
-                <span>🍕 البيتزا</span>
-                <span class="count">6</span>
-            </div>
-            <div class="category-item" data-category="sandwiches">
-                <span>🥪 السندويتشات</span>
-                <span class="count">6</span>
-            </div>
-            <div class="category-item" data-category="kids-meals">
-                <span>👶 وجبات الأطفال</span>
-                <span class="count">6</span>
-            </div>
-            <div class="category-item" data-category="crepes">
-                <span>🥞 الكريب</span>
-                <span class="count">6</span>
-            </div>
-            <div class="category-item" data-category="waffles">
-                <span>🧇 الوافل</span>
-                <span class="count">6</span>
-            </div>
-            <div class="category-item" data-category="cakes">
-                <span>🍰 قطع الكيك</span>
-                <span class="count">6</span>
-            </div>
-            <div class="category-item" data-category="fruit-salads">
-                <span>🍓 سلطات الفواكه</span>
-                <span class="count">6</span>
-            </div>
-            <div class="category-item" data-category="hot-drinks">
-                <span>☕ المشروبات الساخنة</span>
-                <span class="count">6</span>
-            </div>
-            <div class="category-item" data-category="cold-drinks">
-                <span>🥤 المشروبات الباردة</span>
-                <span class="count">6</span>
-            </div>
-            <div class="category-item" data-category="sweets">
-                <span>🍰 الحلويات</span>
-                <span class="count">6</span>
-            </div>
-            <div class="category-item" data-category="shisha">
-                <span>🫖 الأركيلة</span>
-                <span class="count">6</span>
-            </div>
+        <div class="form-row" style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+          <div>
+            <label class="label" for="rDate">التاريخ <span class="req">*</span></label>
+            <input id="rDate" class="input-md" type="date" />
+          </div>
+          <div>
+            <label class="label" for="rTime">الوقت <span class="req">*</span></label>
+            <input id="rTime" class="input-md" type="time" step="900" />
+          </div>
         </div>
 
-        <!-- Breakfast Categories Dropdown -->
-        <div id="breakfastDropdown" class="breakfast-dropdown hidden">
-            <div class="breakfast-category-item" data-category="breakfast">
-                <span>🍳 فطور عربي تقليدي</span>
-            </div>
-            <div class="breakfast-category-item" data-category="breakfast">
-                <span>🥞 فطور صحي متكامل</span>
-            </div>
-            <div class="breakfast-category-item" data-category="breakfast">
-                <span>🧈 فطور شامي أصيل</span>
-            </div>
-            <div class="breakfast-category-item" data-category="breakfast">
-                <span>🍳 بيض مقلي بالطماطم</span>
-            </div>
-            <div class="breakfast-category-item" data-category="breakfast">
-                <span>🫘 فول مدمس بالطحينة</span>
-            </div>
-            <div class="breakfast-category-item" data-category="breakfast">
-                <span>🫓 منقوشة زعتر وجبن</span>
-            </div>
+        <div class="form-row">
+          <label class="label" for="rPeople">عدد الأشخاص <span class="req">*</span></label>
+          <input id="rPeople" class="input-md" type="number" min="1" value="2" />
         </div>
 
-        <nav>
-            <ul>
-                <li>
-                    <button id="categoriesBtn" class="categories-btn" onclick="toggleCategoriesDropdown()">
-                        <i class="fas fa-list"></i>
-                        <span>الأصناف</span>
-                    </button>
-                </li>
-                <li><a href="#breakfast">🍳 الفطور</a></li>
-                <li><a href="#hot-appetizers">🔥 مقبلات</a></li>
-                <li><a href="#salads">🥗 السلطات</a></li>
-                <li><a href="#eastern">🍛 شرقية</a></li>
-                <li><a href="#western">🍝 غربية</a></li>
-                <li><a href="#grills">🔥 المشاوي</a></li>
-                <li><a href="#seafood">🐟 بحرية</a></li>
-                <li><a href="#sandwiches">🥪 سندويتشات</a></li>
-                <li><a href="#crepes">🥞 الحلويات</a></li>
-                <li><a href="#fruit-salads">🍓 سلطات فواكه</a></li>
-                <li><a href="#hot-drinks">☕ مشروبات </a></li>
-            </ul>
-        </nav>
-    </header>
-
-    <main>
-        <!-- Breakfast Section -->
-        <section id="breakfast" class="category">
-            <h2>🍳 الفطور الصباحي</h2>
-            <div class="items-grid">
-                <div class="menu-item">
-                    <img loading="lazy" decoding="async" src="images/breakfast2.jpg" alt="فطور عربي تقليدي">
-                    <h3>فطور عربي تقليدي</h3>
-                    <p>فطور شامل يضم الحمص والفول والجبن والزيتون والخضار الطازجة مع الخبز العربي</p>
-                    <span class="price">7 $</span>
-                </div>
-                <div class="menu-item">
-                    <img loading="lazy" decoding="async" src="images/Olives_Plate.png" alt="فطور صحي">
-                    <h3>  زيتون اخضر /اسود </h3>
-                    <p>وجبة فطور صحية       </p>
-                    <span class="price">2 $</span>
-                </div>
-                <div class="menu-item">
-                    <img loading="lazy" decoding="async" src="images/Falafel.jpg" alt="فطور شامي">
-                    <h3>فلافل   </h3>
-                    <p>وجبة فطور صحية       </p>
-                    <span class="price">3 $</span>
-                </div>
-                <div class="menu-item">
-                    <img loading="lazy" decoding="async" src="images/Hummus_with_Tahini.jpg" alt="فول مدمس">
-                    <h3>  حمص مطحون</h3>
-                    <p>وجبة فطور صحية       </p>
-                    <span class="price">1.5 $</span>
-                </div>
-            </div>
-        </section>
-
-        <!-- Hot Appetizers Section -->
-        <section id="hot-appetizers" class="category">
-            <h2>🔥 المقبلات </h2>
-            <div class="items-grid">
-                <div class="menu-item">
-                    <img loading="lazy" decoding="async" src="images/Eggplant_Mutabbal.jpg" alt="متبل  ">
-                    <h3>متبل باذنجان   </h3>
-                    <p>وجبة         </p>
-                    <span class="price">1 $</span>
-                </div>
-                <div class="menu-item">
-                    <img loading="lazy" decoding="async" src="images/Hummus_with_Tahini.jpg" alt="حمص مطحون">
-                    <h3>حمص مطحون  </h3>
-                    <p>وجبة         </p>
-                    <span class="price">1.5 $</span>
-                </div>
-                <div class="menu-item">
-                    <img loading="lazy" decoding="async" src="images/soup1.jpg" alt="شوربة ">
-                    <h3>شوربة </h3>
-                    <p>وجبة         </p>
-                    <span class="price">1 $</span>
-                </div>
-            </div>
-        </section>
-
-        <!-- Salads Section -->
-        <section id="salads" class="category">
-            <h2>🥗 السلطات</h2>
-            <div class="items-grid">
-                <div class="menu-item">
-                    <img loading="lazy" decoding="async" src="images/salad1.jpg" alt="سلطة عربية">
-                    <h3>سلطة عربية مشكلة</h3>
-                    <p>خليط من الخس والطماطم والخيار والبصل مع زيت الزيتون والليمون</p>
-                    <span class="price">18 $</span>
-                </div>
-                <div class="menu-item">
-                    <img loading="lazy" decoding="async" src="images/salad2.jpg" alt="تبولة">
-                    <h3>تبولة لبنانية</h3>
-                    <p>سلطة البقدونس التقليدية مع الطماطم والبرغل والنعناع والليمون</p>
-                    <span class="price">22 $</span>
-                </div>
-                <div class="menu-item">
-                    <img loading="lazy" decoding="async" src="images/Fattoush_Salad.jpg" alt="فتوش">
-                    <h3>فتوش شامي</h3>
-                    <p>سلطة الخضار المشكلة مع قطع الخبز المحمص والسماق ودبس الرمان</p>
-                    <span class="price">20 $</span>
-                </div>
-                <div class="menu-item">
-                    <img loading="lazy" decoding="async" src="images/Caesar_Salad.jpg" alt="سلطة يونانية">
-                    <h3>سلطة يونانية</h3>
-                    <p>خضار طازجة مع جبن الفيتا والزيتون الأسود وزيت الزيتون</p>
-                    <span class="price">25 $</span>
-                </div>
-            </div>
-        </section>
-
-        <!-- Eastern Dishes Section -->
-        <section id="eastern" class="category">
-            <h2>🍛 الأطباق الشرقية الأصيلة</h2>
-            <div class="items-grid">
-                <div class="menu-item">
-                    <img loading="lazy" decoding="async" src="images/Lamb_Mandi.png" alt="مندي لحم">
-                    <h3>مندي اللحم الأصيل</h3>
-                    <p>لحم ضأن طري مطبوخ على الطريقة اليمنية مع الأرز البسمتي والبهارات</p>
-                    <span class="price">14 $</span>
-                </div>
-                <div class="menu-item">
-                    <img loading="lazy" decoding="async" src="images/Chicken_Kabsa.png" alt="كبسة دجاج">
-                    <h3>كبسة الدجاج الملكية</h3>
-                    <p>دجاج مشوي مع الأرز المبهر والخضار، على الطريقة السعودية الأصيلة</p>
-                    <span class="price">9 $</span>
-                </div>
-                <div class="menu-item">
-                    <img loading="lazy" decoding="async" src="images/Mansaf.png" alt="منسف">
-                    <h3>منسف أردني أصيل</h3>
-                    <p>لحم ضأن مطبوخ باللبن الجميد مع الأرز، يُقدم على الطريقة الأردنية</p>
-                    <span class="price">16 $</span>
-                </div>
-                <div class="menu-item">
-                    <img loading="lazy" decoding="async" src="images/Chicken_Biryani.png" alt="برياني">
-                    <h3>برياني بالدجاج</h3>
-                    <p>  طازجة مع قطع الدجاج والأرز الأبيض</p>
-                    <span class="price">9.5 $</span>
-                </div>
-                <div class="menu-item">
-                    <img loading="lazy" decoding="async" src="images/Stuffed_Chicken_with_Rice.jpg" alt="دجاج محشي  ">
-                    <h3>دجاج  محشي</h3>
-                    <p>قطع الخبز  مع  واللبن  والصنوبر</p>
-                    <span class="price">8 $</span>
-                </div>
-            </div>
-        </section>
-
-        <!-- Western Dishes Section -->
-        <section id="western" class="category">
-            <h2>🍝 الأطباق الغربية </h2>
-            <div class="items-grid">
-                <div class="menu-item">
-                    <img loading="lazy" decoding="async" src="images/hot1.jpg" alt=" دجاج مقلي">
-                    <h3>دجاج مقلي سبايسي   </h3>
-                    <p>سبايسي   حسب الطلب مع البطاطس والخضار </p>
-                    <span class="price">7 $</span>
-                </div>
-                <div class="menu-item">
-                    <img loading="lazy" decoding="async" src="images/Chicken_Burger.png" alt="برغر ">
-                    <h3>برجر دجاج   </h3>
-                    <p>برجر  طازج مع الجبن والخضار والبطاطس المقلية</p>
-                    <span class="price">8 $</span>
-                </div>
-                <div class="menu-item">
-                    <img loading="lazy" decoding="async" src="images/Club_Sandwich.png" alt="سابا ">
-                    <h3>سابايا   </h3>
-                    <p>سابيا  طازج مع الجبن والخضار والبطاطس المقلية</p>
-                    <span class="price">4 $</span>
-                </div>
-                <div class="menu-item">
-                    <img loading="lazy" decoding="async" src="images/Beef_Burger.jpg" alt="برغر ">
-                    <h3>برجر اللحم الفاخر</h3>
-                    <p>برجر  طازج مع الجبن والخضار والبطاطس المقلية</p>
-                    <span class="price">11 $</span>
-                </div>
-                <div class="menu-item">
-                    <img loading="lazy" decoding="async" src="images/Double_Cheeseburger.png" alt="برغر ">
-                    <h3>برجر اللحم مع الجبن </h3>
-                    <p>برجر  طازج مع الجبن والخضار والبطاطس المقلية</p>
-                    <span class="price">12 $</span>
-                </div>
-            </div>
-        </section>
-
-        <!-- Grills Section -->
-        <section id="grills" class="category">
-            <h2>🔥 المشاوي</h2>
-            <div class="items-grid">
-                <div class="menu-item">
-                    <img loading="lazy" decoding="async" src="images/Mixed_Grill.jpg" alt=" مشاوي">
-                    <h3>مشكل المشاوي الفاخر</h3>
-                    <p>تشكيلة من الكباب والكفتة والشيش طاووق مع الأرز والسلطة</p>
-                    <span class="price">17 $</span>
-                </div>
-                <div class="menu-item">
-                    <img loading="lazy" decoding="async" src="images/grill2.jpg" alt=" مشاوي">
-                    <h3>كباب اللحم المتبل</h3>
-                    <p>أسياخ كباب لحم طرية متبلة بالبهارات الشرقية ومشوية على الفحم</p>
-                    <span class="price">14 $</span>
-                </div>
-                <div class="menu-item">
-                    <img loading="lazy" decoding="async" src="images/Shish_Tawook.png" alt=" مشاوي">
-                    <h3>شيش طاووق مشوي</h3>
-                    <p>قطع دجاج طرية متبلة بالثوم والليمون ومشوية على الفحم</p>
-                    <span class="price">11 $</span>
-                </div>
-                <div class="menu-item">
-                    <img loading="lazy" decoding="async" src="images/meat1.jpg" alt=" مشاوي">
-                    <h3>كفتة مشوية بالبقدونس</h3>
-                    <p>كفتة لحم طازجة مخلوطة بالبقدونس والبصل ومشوية على الفحم</p>
-                    <span class="price">18 $</span>
-                </div>
-                <div class="menu-item">
-                    <img loading="lazy" decoding="async" src="images/Lamb_Chops.png" alt=" مشاوي">
-                    <h3>ضلوع الغنم المشوية</h3>
-                    <p>ضلوع غنم طرية متبلة ومشوية ببطء على الفحم حتى النضج</p>
-                    <span class="price">16 $</span>
-                </div>
-                <div class="menu-item">
-                    <img loading="lazy" decoding="async" src="images/grill2.jpg" alt=" مشاوي">
-                    <h3>نصف دجاج مشوي</h3>
-                    <p>نصف دجاج طازج متبل ومشوي على الفحم مع الثوم والليمون</p>
-                    <span class="price">12 $</span>
-                </div>
-            </div>
-        </section>
-
-        <!-- Seafood Section -->
-        <section id="seafood" class="category">
-            <h2>🐟 المأكولات البحرية</h2>
-            <div class="items-grid">
-                <div class="menu-item">
-                    <img loading="lazy" decoding="async" src="images/Grilled_Salmon.png" alt="سمك مشوي">
-                    <h3>سمك هامور مشوي</h3>
-                    <p>سمك هامور طازج مشوي مع الخضار والأرز الأبيض وصوص الليمون</p>
-                    <span class="price">85 $</span>
-                </div>
-                <div class="menu-item">
-                    <img loading="lazy" decoding="async" src="images/Grilled_Fish.png" alt="سلمون مشوي">
-                    <h3>سلمون مشوي بالأعشاب</h3>
-                    <p>فيليه سلمون نرويجي مشوي مع الأعشاب الطازجة وصوص الكابر</p>
-                    <span class="price">95 $</span>
-                </div>
-                <div class="menu-item">
-                    <img loading="lazy" decoding="async" src="images/seafood1.jpg" alt="سمك فيليه">
-                    <h3>فيليه السمك المقلي</h3>
-                    <p>فيليه سمك طازج مقلي مع البقسماط والبطاطس المقلية</p>
-                    <span class="price">70 $</span>
-                </div>
-                <div class="menu-item">
-                    <img loading="lazy" decoding="async" src="images/seafood2.jpg" alt="مأكولات بحرية">
-                    <h3>طبق المأكولات البحرية</h3>
-                    <p>تشكيلة من الجمبري والحبار والسمك مع الأرز والخضار</p>
-                    <span class="price">110 $</span>
-                </div>
-            </div>
-        </section>
-
-        <!-- Sandwiches Section -->
-        <section id="sandwiches" class="category">
-            <h2>🥪 السندويتشات</h2>
-            <div class="items-grid">
-                <div class="menu-item">
-                    <img loading="lazy" decoding="async" src="images/sandwich1.jpg" alt="شاورما لحم">
-                    <h3>شاورما اللحم</h3>
-                    <p>شاورما لحم طازجة مع الخضار والطحينة والثوم في خبز عربي</p>
-                    <span class="price">7 $</span>
-                </div>
-                <div class="menu-item">
-                    <img loading="lazy" decoding="async" src="images/Chicken_Shawarma.png" alt="شاورما دجاج">
-                    <h3>شاورما الدجاج</h3>
-                    <p>شاورما دجاج مشوية مع الخضار والثوم والمايونيز في خبز طازج</p>
-                    <span class="price">5 $</span>
-                </div>
-                <div class="menu-item">
-                    <img loading="lazy" decoding="async" src="images/Club_Sandwich.jpg" alt="تونة">
-                    <h3>سندويتش التونة</h3>
-                    <p>تونة طازجة مع الخضار والمايونيز في خبز التوست المحمص</p>
-                    <span class="price">20 $</span>
-                </div>
-            </div>
-        </section>
-
-        <!-- Crepes Section -->
-        <section id="crepes" class="category">
-            <h2>🥞 الحلويات</h2>
-            <div class="items-grid">
-                <div class="menu-item">
-                    <img loading="lazy" decoding="async" src="images/crepe1.jpg" alt="كريب نوتيلا">
-                    <h3>كريب النوتيلا والفراولة</h3>
-                    <p>كريب رقيق محشو بالنوتيلا وقطع الفراولة الطازجة مع السكر البودرة</p>
-                    <span class="price">3 $</span>
-                </div>
-                <div class="menu-item">
-                    <img loading="lazy" decoding="async" src="images/western3.jpg" alt="كريب موز">
-                    <h3>كريب الموز والعسل</h3>
-                    <p>كريب محشو بشرائح الموز الطازج والعسل الطبيعي</p>
-                    <span class="price">3.5 $</span>
-                </div>
-                <div class="menu-item">
-                    <img loading="lazy" decoding="async" src="images/Basbousa_with_Cream.jpg" alt="كريب شوكولاتة">
-                    <h3> الشوكولاتة البيضاء</h3>
-                    <p>كريب محشو بالشوكولاتة البيضاء والمكسرات المجروشة</p>
-                    <span class="price">3 $</span>
-                </div>
-                <div class="menu-item">
-                    <img loading="lazy" decoding="async" src="images/cake1.jpg" alt="كيك شوكولاتة">
-                    <h3>كيك الشوكولاتة الفاخر</h3>
-                    <p>قطعة كيك شوكولاتة غنية مع طبقات الكريمة والفواكه الطازجة</p>
-                    <span class="price">2 $</span>
-                </div>
-                <div class="menu-item">
-                    <img loading="lazy" decoding="async" src="images/Cheesecake.png" alt="تشيز كيك">
-                    <h3>تشيز كيك بالفراولة</h3>
-                    <p>قطعة تشيز كيك كريمية مع صوص الفراولة الطازج</p>
-                    <span class="price">2 $</span>
-                </div>
-                <div class="menu-item">
-                    <img loading="lazy" decoding="async" src="images/Basbousa.png" alt="نابلسيا">
-                    <h3>نابلسيا مع بزظا   </h3>
-                    <p>قطعة  فانيليا طرية مع كريمة الزبدة </p>
-                    <span class="price">3 $</span>
-                </div>
-                <div class="menu-item">
-                    <img loading="lazy" decoding="async" src="images/Basbousa_with_Cream.jpg" alt="كيك جزر">
-                    <h3>كيك  بالمكسرات</h3>
-                    <p>قطعة كيك جزر صحية مع المكسرات وكريمة الجبن</p>
-                    <span class="price">3 $</span>
-                </div>
-                <div class="menu-item">
-                    <img loading="lazy" decoding="async" src="images/arabic_sweets1.jpg" alt="حلويات  ">
-                    <h3>حلويات مشك   </h3>
-                    <p>قطعة كيك ليمون خفيفة مع كريمة الليمون الطازجة</p>
-                    <span class="price">19 $</span>
-                </div>
-            </div>
-        </section>
-
-        <!-- Fruit Salads Section -->
-        <section id="fruit-salads" class="category">
-            <h2>🍓 سلطات الفواكه</h2>
-            <div class="items-grid">
-                <div class="menu-item">
-                    <img loading="lazy" decoding="async" src="images/fruit1.jpg" alt="سلطة فواكه مشكلة">
-                    <h3>سلطة الفواكه المشكلة</h3>
-                    <p>خليط من الفواكه الطازجة الموسمية مع النعناع والعسل</p>
-                    <span class="price">3 $</span>
-                </div>
-                <div class="menu-item">
-                    <img loading="lazy" decoding="async" src="images/fruit1.jpg" alt="سلطة استوائية">
-                    <h3>سلطة الفواكه الاستوائية</h3>
-                    <p>مانجو وأناناس وكيوي مع جوز الهند المبشور</p>
-                    <span class="price">6 $</span>
-                </div>
-                <div class="menu-item">
-                    <img loading="lazy" decoding="async" src="images/Fruit_Cocktail.jpg" alt="سلطة توت">
-                    <h3>سلطة التوت المشكل</h3>
-                    <p>فراولة وتوت أزرق وتوت أحمر مع الكريمة المخفوقة</p>
-                    <span class="price">4 $</span>
-                </div>
-            </div>
-        </section>
-
-        <!-- Pizza Section -->
-        <section id="pizza" class="category">
-            <h2>🍕 المعجنات و البيتزا </h2>
-            <div class="items-grid">
-                <div class="menu-item">
-                    <img loading="lazy" decoding="async" src="images/margherita1.jpg" alt="بيتزا مارجريتا">
-                    <h3>بيتزا مارجريتا الكلاسيكية</h3>
-                    <p>بيتزا إيطالية أصيلة مع صوص الطماطم وجبن الموزاريلا الطازج وأوراق الريحان</p>
-                    <span class="price">6 $</span>
-                </div>
-                <div class="menu-item">
-                    <img loading="lazy" decoding="async" src="images/pepperoni1.jpg" alt="بيتزا بيبروني">
-                    <h3>بيتزا البيبروني الحارة</h3>
-                    <p>بيتزا مع شرائح البيبروني الحار وجبن الموزاريلا على عجينة رقيقة مقرمشة</p>
-                    <span class="price">6 $</span>
-                </div>
-                <div class="menu-item">
-                    <img loading="lazy" decoding="async" src="images/vegetarian1.jpg" alt="بيتزا نباتية">
-                    <h3>بيتزا الخضار الطازجة</h3>
-                    <p>بيتزا نباتية مع الفلفل الملون والطماطم والزيتون والفطر الطازج</p>
-                    <span class="price">7 $</span>
-                </div>
-                <div class="menu-item">
-                    <img loading="lazy" decoding="async" src="images/Pizza_Margherita.png" alt="بيتزا أربعة أجبان">
-                    <h3>بيتزا الأجبان الأربعة</h3>
-                    <p>خليط من أربعة أنواع جبن: موزاريلا، بارميزان، جورجونزولا، وريكوتا</p>
-                    <span class="price">6.5 $</span>
-                </div>
-                <div class="menu-item">
-                    <img loading="lazy" decoding="async" src="images/Cheese_Manakish.png" alt="زعتر  ">
-                    <h3>منقوشة زعتر   </h3>
-                    <p>عجينة عربية بزعتر الفاخر         </p>
-                    <span class="price">2 $</span>
-                </div>
-                <div class="menu-item">
-                    <img loading="lazy" decoding="async" src="images/Garlic_Bread.png" alt="جبنة   ">
-                    <h3>منقوشة جبنة   </h3>
-                    <p>عجينة عربية بزعتر الفاخر         </p>
-                    <span class="price">2 $</span>
-                </div>
-                <div class="menu-item">
-                    <img loading="lazy" decoding="async" src="images/Spinach_Fatayer.png" alt="جبنة   ">
-                    <h3> سمبوسك   </h3>
-                    <p>عجينة عربية  الفاخر         </p>
-                    <span class="price">4 $</span>
-                </div>
-            </div>
-        </section>
-
-        <!-- Hot Drinks Section -->
-        <section id="hot-drinks" class="category">
-            <h2>☕ المشروبات </h2>
-            <div class="items-grid">
-                <div class="menu-item">
-                    <img loading="lazy" decoding="async" src="images/orange1.jpg" alt=" ">
-                    <h3>عصير البرتقال الطازج</h3>
-                    <p>عصير برتقال طبيعي 100% معصور طازجاً، غني بفيتامين سي</p>
-                    <span class="price">4 $</span>
-                </div>
-                <div class="menu-item">
-                    <img loading="lazy" decoding="async" src="images/Lemon_Mint_Juice.png" alt=" ">
-                    <h3>عصير ليمون بالنعناع</h3>
-                    <p>عصير ليمون طازج مع النعناع والثلج، مشروب منعش ومثالي للأجواء الحارة</p>
-                    <span class="price">15 $</span>
-                </div>
-                <div class="menu-item">
-                    <img loading="lazy" decoding="async" src="images/drink1.jpg" alt=" ">
-                    <h3>سموثي الفواكه المشكلة</h3>
-                    <p>خليط منعش من المانجو والفراولة والموز مع الحليب وقطع الثلج</p>
-                    <span class="price">30 $</span>
-                </div>
-                <div class="menu-item">
-                    <img loading="lazy" decoding="async" src="images/Arabic_Coffee.png" alt=" ">
-                    <h3>قهوة عربية أصيلة</h3>
-                    <p>قهوة عربية محمصة طازجة مع الهيل والزعفران، تُقدم مع التمر</p>
-                    <span class="price">15 $</span>
-                </div>
-                <div class="menu-item">
-                    <img loading="lazy" decoding="async" src="images/Turkish_Tea.png" alt=" ">
-                    <h3>شاي أحمر بالنعناع</h3>
-                    <p>شاي أحمر قوي مع أوراق النعناع الطازج والسكر</p>
-                    <span class="price">10 $</span>
-                </div>
-                <div class="menu-item">
-                    <img loading="lazy" decoding="async" src="images/Cappuccino.png" alt=" ">
-                    <h3>كابتشينو إيطالي</h3>
-                    <p>قهوة إسبريسو مع الحليب المبخر ورغوة الحليب الكريمية</p>
-                    <span class="price">18 $</span>
-                </div>
-            </div>
-        </section>
-    </main>
-
-    <!-- Rating Modal -->
-    <div id="ratingModal" class="modal hidden">
-        <div class="modal-content">
-            <h3>تقييم الخدمة</h3>
-            <form id="ratingForm">
-                <input type="text" id="customerName" placeholder="اسمك" required>
-                <div class="stars">
-                    <span class="star" data-rating="1">⭐</span>
-                    <span class="star" data-rating="2">⭐</span>
-                    <span class="star" data-rating="3">⭐</span>
-                    <span class="star" data-rating="4">⭐</span>
-                    <span class="star" data-rating="5">⭐</span>
-                </div>
-                <textarea id="comment" placeholder="تعليقك (اختياري)"></textarea>
-                <button type="submit">إرسال التقييم</button>
-                <button type="button" onclick="closeModal()">إلغاء</button>
-            </form>
+        <div class="form-row">
+          <label class="label" for="rType">نوع الحجز</label>
+          <select id="rType" class="input-md">
+            <option value="table">طاولة داخل المطعم</option>
+            <option value="family">قسم العائلات</option>
+            <option value="private">قسم خاص / مناسبات</option>
+            <option value="full">حجز المطعم كامل</option>
+          </select>
         </div>
-    </div>
+        <div id="reserveErr" class="form-error small" style="display:none;color:#b91c1c"></div>
+      </form>
+        <div class="form-row">
+          <label class="label" for="rNotes">ملاحظات (اختياري)</label>
+          <textarea id="rNotes" class="input-md" rows="3" placeholder="مثال: تزيين بسيط لعيد ميلاد، قرب قسم العائلات..."></textarea>
+        </div>
 
-    <footer>
-        <p>&copy; 2025 قائمة طعام المطعم الفاخر. جميع الحقوق محفوظة. | تصميم حديث وأنيق لتجربة طعام لا تُنسى</p>
-    </footer>
+    `;
 
-    <!-- Scripts -->
-    <script src="script.js"></script>
-    <script>
-        // Service Worker: اجعل المسار نسبيًا لتفادي 404 عند النشر داخل مجلد فرعي
-        if ('serviceWorker' in navigator) {
-            window.addEventListener('load', function () {
-                navigator.serviceWorker.register('sw.js')
-                    .then(function (registration) {
-                        console.log('ServiceWorker registration successful with scope: ', registration.scope);
-                    }, function (err) {
-                        console.log('ServiceWorker registration failed: ', err);
-                    });
-            });
+    const ok = document.createElement('button'); ok.className='btn btn-primary'; ok.textContent='تأكيد الحجز';
+    const cancel = document.createElement('button'); cancel.className='btn btn-ghost';  cancel.textContent='إلغاء';
+    cancel.onclick = ()=> Modal.hide();
+
+    // [FIX] اجعل الحدث async
+    ok.onclick = async ()=>{
+      const name  = document.getElementById('rName')?.value.trim()  || '';
+      const phone = document.getElementById('rPhone')?.value.trim() || '';
+      const date  = document.getElementById('rDate')?.value || '';
+      const time  = document.getElementById('rTime')?.value || '';
+      const ppl   = Number(document.getElementById('rPeople')?.value || 0);
+      const type  = document.getElementById('rType')?.value || 'table';
+      const notes = document.getElementById('rNotes')?.value?.trim() || '';
+      const errEl = document.getElementById('reserveErr');
+
+      const errors = [];
+      if(!name)  errors.push('يرجى إدخال الاسم.');
+      if(!phone) errors.push('يرجى إدخال رقم الجوال.');
+      if(!date)  errors.push('يرجى اختيار التاريخ.');
+      if(!time)  errors.push('يرجى اختيار الوقت.');
+      if(!ppl || ppl < 1) errors.push('عدد الأشخاص غير صحيح.');
+
+      const todayStr = (()=>{ const d=new Date(); const m=String(d.getMonth()+1).padStart(2,'0'); const dd=String(d.getDate()).padStart(2,'0'); return `${d.getFullYear()}-${m}-${dd}`; })();
+      if(date && date < todayStr) errors.push('لا يمكن اختيار تاريخ في الماضي.');
+
+      // حدود ساعات العمل: بعد الافتتاح بـ30د وقبل الإغلاق بـ30د 
+      if(time){
+        const OPEN_MIN  = BUSINESS.OPEN_MIN;
+        const CLOSE_MIN = BUSINESS.CLOSE_MIN;
+        const minM = OPEN_MIN + BUSINESS.BUFFER_MIN; // 09:30
+        const maxM = CLOSE_MIN - BUSINESS.BUFFER_MIN; // 00:30 (اليوم التالي)
+        const t    = hm2m(time);
+
+        if(maxM >= 1440){
+          // النطاق يمرّ بعد منتصف الليل: 09:30–23:59 أو 00:00–00:30
+          const maxToday = maxM - 1440; // دقائق مسموحة من اليوم التالي
+          const ok = (t >= minM) || (t <= maxToday);
+          if(!ok){
+            errors.push(`الوقت المسموح: ${m2hm(minM)}–23:59 أو 00:00–${m2hm(maxToday)}.`);
+          }
+        }else{
+          if(t < minM || t > maxM){
+            errors.push(`الوقت المسموح: ${m2hm(minM)}–${m2hm(maxM)}.`);
+          }
         }
-        // لا حاجة لسكربت lazy إضافي — نعتمد على التحميل الكسول المدمج عبر loading="lazy"
-    </script>
-</body>
-</html>
+      }
+
+      // لو التاريخ اليوم: لا تسمح بوقت مضى
+      if(date === todayStr && time){
+        const now = new Date();
+        const hh = String(now.getHours()).padStart(2,'0');
+        const mm = String(now.getMinutes()).padStart(2,'0');
+        const nowHM = `${hh}:${mm}`;
+        if(time < nowHM) errors.push('الوقت المختار سابق للوقت الحالي.');
+      }
+
+      if(errors.length){
+        errEl.style.display='block';
+        errEl.innerHTML = errors.map(e=>`• ${e}`).join('<br>');
+        return;
+      }
+
+      // [FIX] تحقّق من توفر الجسر
+      if(!window.supabaseBridge || !window.supabaseBridge.createReservationSB){
+        Modal.info('الخدمة غير متاحة الآن. تأكد من تحميل Supabase والجسر.','تعذّر الإرسال');
+        return;
+      }
+
+      // [FIX] لفّ النداء بـ try/catch
+      try{
+        await window.supabaseBridge.createReservationSB({
+          name, phone, iso: new Date(`${date}T${time}`).toISOString(),
+          people: ppl, kind: type, notes, duration_minutes: 90
+        });
+
+        // إشعار لصفحة لوحة التحكم
+        const ns = LS.get('notifications', []);
+        ns.unshift({
+          id: crypto.randomUUID(),
+          type: 'reservation',
+          title: 'طلب حجز جديد',
+          message: `${name} — ${ppl} أشخاص — ${date} ${time}`,
+          time: nowISO(),
+          read: false
+        });
+        LS.set('notifications', ns);
+      }catch(e){
+        console.error(e);
+        Modal.info('تعذّر إرسال الحجز، حاول لاحقًا.','خطأ');
+        return; // لا تُظهر نجاح عند الفشل
+      }
+      /* }catch(e){} */ // [FIX] تحييد الـ catch القديم
+
+      Modal.hide();
+      Modal.info('تم استلام طلب الحجز وسنقوم بالتواصل لتأكيده.','حجز طاولة');
+    };
+
+    Modal.show('حجز طاولة', html, [ok, cancel]);
+
+    // تهيئة الحقول: أقل تاريخ = اليوم، والوقت ضمن ساعات العمل مع مراعاة ما بعد منتصف الليل
+    const rDate = document.getElementById('rDate');
+    const rTime = document.getElementById('rTime');
+    const todayStr = (()=>{ const d=new Date(); const m=String(d.getMonth()+1).padStart(2,'0'); const dd=String(d.getDate()).padStart(2,'0'); return `${d.getFullYear()}-${m}-${dd}`; })();
+    if(rDate){ rDate.min = todayStr; if(!rDate.value) rDate.value = todayStr; }
+    if(rTime){
+      const minM = BUSINESS.OPEN_MIN  + BUSINESS.BUFFER_MIN; // 09:30
+      const maxM = BUSINESS.CLOSE_MIN - BUSINESS.BUFFER_MIN; // 00:30 (+يوم)
+
+      if(maxM < 1440){
+        rTime.min = m2hm(minM);
+        rTime.max = m2hm(maxM);
+      }else{
+        // لا يمكن تمثيل النطاق الملتف بـ min/max، نعتمد على تحقق JS فقط
+        rTime.removeAttribute('min');
+        rTime.removeAttribute('max');
+      }
+      rTime.step = 900; // كل 15 دقيقة
+    }
+    setTimeout(()=> document.getElementById('rName')?.focus(), 50);
+  });
+});
+
+/* إغلاق البحث */
+function closeSearchPanel(){
+  if(!searchPanel) return;
+  if (searchInput && searchInput.value !== '') searchInput.value = '';
+  if (typeof state !== 'undefined'){ state.search = ''; try{ renderItems(); }catch{} }
+  searchPanel.classList.remove('open');
+  searchPanel.setAttribute('aria-hidden','true');
+  if(searchToggle) searchToggle.setAttribute('aria-expanded','false');
+}
+if(searchToggle) searchToggle.addEventListener('click', (e)=>{ e.stopPropagation(); openSearchPanel(); });
+if(searchClose)  searchClose .addEventListener('click', closeSearchPanel);
+
+/* ===== تعديل مهم: لا تُغلق البحث عند النقر داخل شبكة النتائج (#itemsGrid) أو داخل عناصره ===== */
+document.addEventListener('click', (e)=>{
+  if(!searchPanel || !searchPanel.classList.contains('open')) return;
+
+  const path = typeof e.composedPath === 'function' ? e.composedPath() : null;
+  const isInside = (el)=> el && (path ? path.includes(el) : el.contains(e.target));
+
+  const inside =
+    isInside(searchPanel) ||
+    (searchToggle && isInside(searchToggle)) ||
+    (grid && isInside(grid)); // ✅ اعتبر شبكة النتائج كجزء من البحث
+
+  if(!inside) closeSearchPanel();
+});
+
+/* =====================================================
+   حالة الواجهة
+===================================================== */
+const state = { activeCat:'sections', search:'' };
+const catIcons = { 'all':'🍽️','sections':'🗂️','starters':'🥗','mains':'🍛','desserts':'🍰','drinks':'🥤' };
+
+/* ==== تنسيق أرقام إنجليزي لجميع العروض ==== */
+const formatPrice = (n)=> Number(n||0).toLocaleString('en-US'); // أسعار
+const formatInt   = (n)=> Number(n||0).toLocaleString('en-US'); // أعداد صحيحة (عدادات)
+const formatAvg   = (n)=> Number(n||0).toLocaleString('en-US', { minimumFractionDigits:1, maximumFractionDigits:1 }); // متوسط
+
+/* ===== نجمة بملء جزئي (RTL fill) مع حدود ===== */
+function starSVGFrac(fill, key){
+  const w = Math.max(0, Math.min(1, Number(fill)||0));
+  const clipId = `clip-${key}`;
+  const d = "M12 17.27L18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21z";
+  const width = (w*24).toFixed(2);
+  const x = (24 - w*24).toFixed(2); // ابدأ القص من اليمين لليسار
+  return `
+    <svg class="star" viewBox="0 0 24 24" width="20" height="20" aria-hidden="true">
+      <defs>
+        <clipPath id="${clipId}">
+          <rect x="${x}" y="0" width="${width}" height="24"></rect>
+        </clipPath>
+      </defs>
+      <path d="${d}" fill="#e5e7eb" stroke="#9ca3af" stroke-width="1.2"></path>
+      <g clip-path="url(#${clipId})">
+        <path d="${d}" fill="#F5A524" stroke="#b45309" stroke-width="1.2"></path>
+      </g>
+    </svg>
+  `;
+}
+
+/* إجمالي الـ FAB */
+function updateFabTotal(){
+  const el = document.getElementById('fabTotal');
+  if(!el) return;
+  const items = LS.get('menuItems', []);
+  const cart  = LS.get('cart', []);
+  const total = cart.reduce((s,ci)=>{
+    const it = items.find(x=>x.id===ci.id);
+    return s + (it?.price||0)*ci.qty;
+  }, 0);
+  el.textContent = formatPrice(total);
+}
+
+function renderCats(){
+  const cats = LS.get('categories', []);
+  const list = cats.filter(c => c.id !== 'all');
+  const pseudo = { id:'sections', name:'كل الأقسام' };
+  const i = list.findIndex(c => c.id === 'starters');
+  if (i > -1) list.splice(i, 0, pseudo);
+  else list.unshift(pseudo);
+
+  function drawInto(container){
+    if(!container) return;
+    container.innerHTML = '';
+    list.forEach(c=>{
+      const btn = document.createElement('button');
+      const isActive = state.activeCat===c.id;
+      btn.className = 'pill' + (isActive ? ' active' : '');
+      btn.dataset.id = c.id; // مهم للسلايدر والتتبّع
+      const ico = catIcons[c.id] ? `<span class="ico">${catIcons[c.id]}</span>` : '';
+      btn.innerHTML = `${ico}<span>${c.name}</span>`;
+      btn.onclick = ()=>{
+        if (c.id === 'sections'){
+          state.activeCat = 'sections';
+          renderItems(); renderCats();
+          window.scrollTo({ top: 0, behavior: 'smooth' });
+        } else if (state.activeCat === 'sections'){
+          const sec = document.getElementById('sec-'+c.id);
+          if (sec) sec.scrollIntoView({ behavior:'smooth', block:'start' });
+          // فعّلها فورًا على الشريط ليظهر المؤشر مباشرةً
+          if(catRibbon){
+            catRibbon.querySelectorAll('.pill').forEach(b=> b.classList.toggle('active', b===btn));
+            moveCatUnderline();
+          }
+        } else {
+          state.activeCat = c.id; renderItems(); renderCats();
+        }
+      };
+      container.appendChild(btn);
+    });
+  }
+
+  drawInto(catPills);
+  drawInto(catRibbon);
+  // حرّك المؤشر بعد اكتمال الرسم
+  moveCatUnderline();
+
+  // عند البداية فقط: حرّك السلايدر من "كل الأقسام" إلى التالي (تأثير بصري)
+  if (state.activeCat === 'sections' && !didInitialKick) {
+    requestAnimationFrame(() => setTimeout(kickUnderlineToNext, 60));
+  }
+}
+renderCats();
+
+function filteredItems(){
+  const items = LS.get('menuItems', []).filter(i=>i.available!==false);
+  return items.filter(i=> (state.activeCat==='all' || i.catId===state.activeCat) &&
+                           (state.search==='' || i.name.includes(state.search) || i.desc?.includes(state.search)));
+}
+
+/* ===== Rating helpers ===== */
+function userHasOrderedItem(itemId){
+  const orders = LS.get('orders', []);
+  const target = String(itemId);
+  return orders.some(o =>
+    Array.isArray(o.items) &&
+    o.items.some(it => String(it.itemId ?? it.id ?? '') === target)
+  );
+}
+
+function userHasRatedItem(itemId){
+  const rated = LS.get('userRated', {});
+  return !!rated[itemId];
+}
+
+function renderItems(){
+  if(!grid) return;
+
+  const allItems = LS.get('menuItems', []).filter(i=>i.available!==false);
+  const q = (state.search||'').trim();
+
+  // === بطاقة: السعر يمين + زر يسار + نجوم RTL جزئية + متوسط ملون ===
+  function cardHTML(i, idx){
+    const eager = (Number(idx)||0) < 10; // أول 10 صور بسرعة عالية
+    const already = userHasRatedItem(i.id);
+    const avgRaw  = Math.max(0, Math.min(5, Number(i.rating?.avg || 0)));
+    const avgTxt  = formatAvg(avgRaw);
+    const avgClass= avgRaw >= 4.5 ? 'rate-good' : (avgRaw >= 3 ? 'rate-mid' : 'rate-bad');
+
+    // ⚡ تحسينات الصور:
+    // - sizes لإعطاء المتصفح حجم العرض المتوقع (تخفيف الداونلود)
+    // - content-visibility:auto لتأجيل الرسم خارج الشاشة
+    // - إزالة onerror المكرر
+    return `
+      <div class="card">
+        <div class="item-img-wrap skeleton">
+          <img
+            src="${normalizeImgPublic(i.img)}"
+            width="1600" height="1000"
+            loading="${eager ? 'eager' : 'lazy'}"
+            fetchpriority="${eager ? 'high' : 'auto'}"
+            decoding="async"
+            sizes="(max-width:640px) 100vw, (max-width:1024px) 50vw, 33vw"
+            style="content-visibility:auto"
+            class="item-img"
+            alt="${i.name}"
+            onload="this.closest('.item-img-wrap')?.classList.remove('skeleton')"
+            onerror="this.onerror=null;this.src='https://images.unsplash.com/photo-1543352634-8730b1c3c34b?q=80&w=1200&auto=format&fit=crop'"/>
+          ${i.fresh?'<span class="img-badge">طازج</span>':""}
+        </div>
+        <div class="item-body">
+          <div class="item-title">
+            <h3>${i.name}</h3>
+            <div class="price"><span>${formatPrice(i.price)}</span> ل.س</div>
+          </div>
+
+          <div class="item-desc">${i.desc||''}</div>
+
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;flex-wrap:wrap;gap:6px">
+            <div class="stars ${already?'is-rated':''}" data-id="${i.id}" title="${already?'تم التقييم سابقاً':'اضغط للتقييم'}">
+              ${[1,2,3,4,5].map(n=>{
+                const f = Math.max(0, Math.min(1, avgRaw - (n - 1))); // املأ من اليمين إلى اليسار
+                return starSVGFrac(f, `${i.id}-${n}`);
+              }).join('')}
+              <span class="avg-badge ${avgClass}" title="متوسط التقييم">${avgTxt}</span>
+              <span class="small" style="margin-right:6px">(${formatInt(i.rating?.count||0)})</span>
+            </div>
+          </div>
+
+          <div class="item-actions">
+            <button class="btn btn-primary" onclick="addToCart('${i.id}', event)">أضِف إلى السلة</button>
+          </div>
+
+        </div>
+      </div>
+    `;
+  }
+
+  if (state.activeCat === 'sections'){
+    grid.className = '';
+    const cats = LS.get('categories', []).filter(c=>c.id!=='all');
+    let html = '';
+    cats.forEach(c=>{
+      const arr = allItems.filter(i =>
+        i.catId === c.id && (q==='""' || i.name.includes(q) || i.desc?.includes(q))
+      );
+      if(arr.length===0) return;
+
+      html += `
+        <section class="menu-section" id="sec-${c.id}">
+          <div class="card section-card">
+            <div class="section-head">
+              <h2 class="section-title">${c.name}</h2>
+            </div>
+            <div class="grid grid-3">
+              ${arr.map((it,idx)=>cardHTML(it, idx)).join('')}
+            </div>
+          </div>
+        </section>
+      `;
+    });
+
+    grid.innerHTML = html || '<div class="small" style="color:var(--muted)">لا يوجد أصناف مطابقة.</div>';
+
+    // فعِّل تتبّع الأقسام في وضع "كل الأقسام"
+    setupSectionSpy();
+
+  } else {
+    grid.className = 'grid grid-3';
+    const items = allItems.filter(i=>
+      (state.activeCat==='all' || i.catId===state.activeCat) &&
+      (q==='' || i.name.includes(q) || i.desc?.includes(q))
+    );
+    grid.innerHTML = items.map((it,idx)=>cardHTML(it, idx)).join('');
+
+    // أوقف التتبّع في الوضع العادي وحرّك المؤشر لمواءمة الحبة النشطة
+    if(sectionObserver){ sectionObserver.disconnect(); sectionObserver = null; }
+    moveCatUnderline();
+  }
+
+  // ⚠️ أزلنا ربط النقر لكل نجمة هنا لتفادي الازدواجية؛ معالج النقر العام موجود أسفل الملف.
+}
+renderItems();
+
+/* ===== بحث ===== */
+if(searchInput){
+  searchInput.addEventListener('input', (e)=>{ state.search = e.target.value.trim(); renderItems(); });
+}
+
+/* =====================================================
+   Cart
+===================================================== */
+function getCart(){ return LS.get('cart', []); }
+function setCart(c){ LS.set('cart', c); updateCartCount(); updateFabTotal(); }
+function updateCartCount(){
+  const c = getCart();
+  const n = c.reduce((a,b)=>a+b.qty,0);
+
+  if(cartCount){
+    if(n>0){ cartCount.style.display='inline-block'; cartCount.textContent = formatInt(n); }
+    else{ cartCount.style.display='none'; }
+  }
+  if(cartFabCount){
+    if(n>0){
+      cartFabCount.textContent = formatInt(n);
+      cartFabCount.hidden = false;
+      cartFabCount.style.display = '';
+    }else{
+      cartFabCount.hidden = true;
+      cartFabCount.style.display = 'none';
+    }
+  }
+}
+updateCartCount();
+
+/* ====== إنشاء/تفعيل زر السلة العائم (FAB) ====== */
+(function initFab(){
+  try{
+    // إن لم يكن موجودًا في الـ HTML لأي سبب، أنشئه (بالإجمالي):
+    if(!cartFab){
+      const btn = document.createElement('button');
+      btn.id = 'cartFab';
+      btn.className = 'cart-fab';
+      btn.type = 'button';
+      btn.setAttribute('aria-label','افتح السلة');
+      btn.innerHTML = `
+        <svg viewBox="0 0 24 24" width="24" height="24" aria-hidden="true">
+          <path d="M7 4h-2l-1 2h2l3.6 7.59-1.35 2.41A2 2 0 0 0 10 18h9v-2h-8.42a.25.25 0 0 1-.22-.37L11 13h6a2 2 0 0 0 1.8-1.1l3-6H7.42L7 4Z" fill="currentColor"/>
+        </svg>
+        <span class="cart-fab__label"><span id="fabTotal">0</span> ل.س</span>
+        <span id="cartFabCount" class="badge" hidden>0</span>
+      `;
+      document.body.appendChild(btn);
+      cartFab = btn;
+      cartFabCount = btn.querySelector('#cartFabCount');
+    }
+    // منع إغلاق السلة فور النقر على الـ FAB
+    if(cartFab){
+      cartFab.addEventListener('click', (e)=>{ e.stopPropagation(); openCart(); });
+    }
+    updateCartCount();
+    updateFabTotal();
+  }catch(e){}
+})();
+
+/* ===== تعديل: استقبل الحدث وأوقف انتشاره لمنع إغلاق البحث عند الإضافة ===== */
+function addToCart(id, ev){
+  if(ev) ev.stopPropagation();
+  const cart = getCart();
+  const existing = cart.find(x=>x.id===id);
+  if(existing) existing.qty++;
+  else cart.push({id, qty:1});
+  setCart(cart);
+  Toast.show('أُضيفت للسلة');
+}
+
+/* ===== فتح/إغلاق السلة ===== */
+function openCart(){
+  if(!cartDrawer) return;
+  document.body.classList.add('cart-open');
+  cartDrawer.classList.add('open');
+  cartDrawer.setAttribute('aria-hidden','false');
+  if(cartBtn) cartBtn.setAttribute('aria-expanded','true');
+  if(cartFab) cartFab.classList.add('fab-hide');
+  if(backdrop) backdrop.classList.add('open');
+  renderCart();
+}
+function closeCart(){
+  if(!cartDrawer) return;
+  document.body.classList.remove('cart-open');
+  cartDrawer.classList.remove('open');
+  cartDrawer.setAttribute('aria-hidden','true');
+  if(cartBtn) cartBtn.setAttribute('aria-expanded','false');
+  if(cartFab) cartFab.classList.remove('fab-hide');
+  if(backdrop) backdrop.classList.remove('open');
+}
+if(cartBtn) cartBtn.addEventListener('click', openCart);
+if(closeDrawerBtn) closeDrawerBtn.addEventListener('click', closeCart);
+
+// إغلاق من الخلفية
+if(backdrop){ backdrop.addEventListener('click', ()=> closeCart()); }
+
+/* === إغلاق السلة عند النقر خارجها — نسخة محصّنة بـ composedPath === */
+document.addEventListener('click', function (e) {
+  if(!cartDrawer || !cartDrawer.classList.contains('open')) return;
+
+  const path = typeof e.composedPath === 'function' ? e.composedPath() : null;
+  const isInside = (node)=> node && (path ? path.includes(node) : node.contains(e.target));
+
+  const inside =
+    isInside(cartDrawer) ||
+    (cartFab && isInside(cartFab)) ||
+    (cartBtn && isInside(cartBtn));
+
+  if(!inside) closeCart();
+});
+
+/* ===== رسم محتوى السلة ===== */
+function renderCart(){
+  if(!cartItemsEl || !cartTotalEl) return;
+  const items = LS.get('menuItems', []);
+  const cart  = getCart();
+  let total = 0;
+
+  cartItemsEl.innerHTML = '';
+  if(cart.length===0){
+    cartItemsEl.innerHTML = '<div class="small" style="text-align:center;color:var(--muted)">السلة فارغة</div>';
+  }
+
+  cart.forEach(ci=>{
+    const item = items.find(x=>x.id===ci.id);
+    if(!item) return;
+    const sum = item.price * ci.qty;
+    total += sum;
+
+    const row = document.createElement('div');
+    row.className='cart-item';
+    row.innerHTML = `
+      <img src="${normalizeImgPublic(item.img)}"
+           loading="lazy" decoding="async" alt="${item.name}"
+           sizes="(max-width:640px) 30vw, 15vw"
+           onerror="this.onerror=null;this.src='https://images.unsplash.com/photo-1543352634-8730b1c3c34b?q=80&w=600&auto=format&fit=crop'"/>
+      <div style="flex:1">
+        <div style="display:flex;justify-content:space-between;align-items:center">
+          <strong>${item.name}</strong>
+          <button title="حذف" style="border:none;background:transparent;cursor:pointer;color:#b91c1c;font-weight:700" aria-label="حذف" onclick="removeFromCart('${ci.id}', event)">×</button>
+        </div>
+        <div class="small" style="color:var(--muted)">${formatPrice(item.price)} ل.س</div>
+        <div class="qty" style="margin-top:6px">
+          <button onclick="incQty('${ci.id}', event)">+</button>
+          <span><strong>${formatInt(ci.qty)}</strong></span>
+          <button onclick="decQty('${ci.id}', event)">-</button>
+          <span class="small" style="margin-right:auto;color:var(--muted)">المجموع: ${formatPrice(sum)} ل.س</span>
+        </div>
+      </div>
+    `;
+    cartItemsEl.appendChild(row);
+  });
+  cartTotalEl.textContent = formatPrice(total);
+  updateFabTotal();
+}
+
+/* ===== دوال الكمية (توقف انتشار الحدث) ===== */
+function incQty(id, ev){
+  if(ev) ev.stopPropagation();
+  const c=getCart(); const x=c.find(i=>i.id===id);
+  if(x){ x.qty++; setCart(c); renderCart(); }
+}
+function decQty(id, ev){
+  if(ev) ev.stopPropagation();
+  const c=getCart(); const x=c.find(i=>i.id===id);
+  if(x){
+    x.qty--;
+    if(x.qty<=0){ return removeFromCart(id, ev); }
+    setCart(c); renderCart();
+  }
+}
+function removeFromCart(id, ev){
+  if(ev) ev.stopPropagation();
+  const c=getCart().filter(i=>i.id!==id);
+  setCart(c); renderCart();
+}
+
+/* ============================
+   نافذة إدخال بيانات الطلب
+===============================*/
+/* ============================
+   نافذة إدخال بيانات الطلب (جديدة)
+===============================*/
+function askOrderInfo(){
+  return new Promise((resolve)=>{
+    const html = `
+      <form id="orderForm" class="form-vertical" novalidate>
+        <div style="display:flex;gap:8px;margin:0 0 12px">
+          <button type="button" id="tabTable" class="btn btn-primary">طاولة</button>
+          <button type="button" id="tabOut"   class="btn btn-ghost">سفري/توصيل</button>
+        </div>
+
+        <div id="panelTable">
+          <div class="form-row">
+            <label class="label" for="tableInput">رقم الطاولة <span class="req">*</span></label>
+            <input id="tableInput" class="input-md" type="text" inputmode="numeric" pattern="[0-9]*" dir="auto" placeholder="مثال: 12" />
+          </div>
+
+          <div class="form-row">
+            <label class="label" for="notesInput">ملاحظات <span class="small" style="color:var(--muted)">(اختياري)</span></label>
+            <textarea id="notesInput" class="input-md" rows="3" placeholder="مثلاً: بدون بصل / زيادة صوص"></textarea>
+          </div>
+        </div>
+
+        <div id="panelOut" style="display:none">
+          <div class="form-row">
+            <label class="label" for="dlvyLoc">الموقع</label>
+            <input id="dlvyLoc" class="input-md" type="text" dir="auto" placeholder="مثلاً: شارع الملك، بناية 5، شقة 10" />
+          </div>
+          <div class="form-row">
+            <label class="label" for="dlvyPhone">رقم الهاتف</label>
+            <input id="dlvyPhone" class="input-md" type="tel" inputmode="tel" dir="ltr" placeholder="05xxxxxxxx" />
+          </div>
+          <div class="form-row">
+            <label class="label" for="dlvyNotes">تعليمات إضافية للتوصيل <span class="small" style="color:var(--muted)">(اختياري)</span></label>
+            <textarea id="dlvyNotes" class="input-md" rows="3" placeholder="مثلاً: البيت خلف المسجد، اتصل قبل الوصول"></textarea>
+          </div>
+        </div>
+
+        <div id="orderErr" class="form-error small" style="display:none"></div>
+      </form>
+    `;
+
+    const ok = document.createElement('button'); ok.className='btn btn-primary'; ok.textContent='إرسال الطلب';
+    const cancel = document.createElement('button'); cancel.className='btn btn-ghost'; cancel.textContent='إلغاء';
+
+    ok.onclick = ()=>{
+      const mode = (document.body.dataset.orderMode || 'table');
+      const err  = document.querySelector('#orderErr');
+      const mark = (el, bad)=>{ if(!el) return; el.style.borderColor = bad ? '#ef4444' : 'var(--border)'; };
+
+      if(mode==='table'){
+        const tableEl = document.querySelector('#tableInput');
+        const notesEl = document.querySelector('#notesInput');
+        const table   = (tableEl?.value||'').trim();
+        const notes   = (notesEl?.value||'').trim();
+
+        let hasErr = false;
+        if(!table){ hasErr = true; mark(tableEl, true); }
+
+        if(hasErr){
+          if(err){ err.textContent = 'يرجى إدخال رقم الطاولة.'; err.style.display='block'; }
+          return;
+        }
+        if(err) err.style.display='none';
+
+        Modal.hide();
+        resolve({ mode:'table', table, notes });
+      } else {
+        const locEl   = document.querySelector('#dlvyLoc');
+        const phoneEl = document.querySelector('#dlvyPhone');
+        const notesEl = document.querySelector('#dlvyNotes');
+        const location = (locEl?.value||'').trim();
+        const phone    = (phoneEl?.value||'').trim();
+        const notes    = (notesEl?.value||'').trim();
+
+        let hasErr = false;
+        if(!location){ hasErr = true; mark(locEl, true); }
+        if(!phone){ hasErr = true; mark(phoneEl, true); }
+
+        if(hasErr){
+          if(err){ err.textContent = 'أدخل الموقع ورقم الهاتف.'; err.style.display='block'; }
+          return;
+        }
+        if(err) err.style.display='none';
+
+        Modal.hide();
+        resolve({ mode:'out', table:'', phone, location, notes });
+      }
+    };
+    cancel.onclick = ()=>{ Modal.hide(); resolve(null); };
+
+    Modal.show('إتمام الطلب', html, [ok, cancel]);
+
+    // تركيز تلقائي + تبديل الوضع + دعم Enter للإرسال
+    setTimeout(()=>{
+      const tabTable = document.querySelector('#tabTable');
+      const tabOut   = document.querySelector('#tabOut');
+      const pTable = document.querySelector('#panelTable');
+      const pOut   = document.querySelector('#panelOut');
+      const activate = (mode)=>{
+        document.body.dataset.orderMode = mode;
+        if(mode==='table'){
+          tabTable.className = 'btn btn-primary';
+          tabOut.className   = 'btn btn-ghost';
+          pTable.style.display = 'block';
+          pOut.style.display   = 'none';
+          document.querySelector('#tableInput')?.focus();
+        }else{
+          tabOut.className   = 'btn btn-primary';
+          tabTable.className = 'btn btn-ghost';
+          pOut.style.display   = 'block';
+          pTable.style.display = 'none';
+          document.querySelector('#dlvyLoc')?.focus();
+        }
+      };
+      tabTable?.addEventListener('click', ()=> activate('table'));
+      tabOut?.addEventListener('click', ()=> activate('out'));
+      activate('table');
+
+      const formEl  = document.querySelector('#orderForm');
+      if(formEl){ formEl.addEventListener('submit', (e)=>{ e.preventDefault(); ok.click(); }); }
+    }, 10);
+  });
+}
+
+/* =====================================================
+   Checkout
+===================================================== */
+if(checkoutBtn){
+  checkoutBtn.addEventListener('click', async ()=>{
+    const cart = getCart(); if(cart.length===0) return;
+    const items = LS.get('menuItems', []);
+    let total=0;
+
+    // [FIX] جهّز عناصر الطلب والإجمالي ومعرّف للعرض
+    const orderItems = cart.map(ci=>{
+      const it = items.find(x=>x.id===ci.id) || {};
+      return { itemId: ci.id, name: it.name || '', price: Number(it.price||0), qty: ci.qty };
+    });
+    total = orderItems.reduce((s,x)=> s + x.price * x.qty, 0);
+    let orderId = Math.floor(Date.now()/1000);
+    let __orderSuccessShown = false;
+
+    const info = await askOrderInfo();
+    if(!info) return;
+    const { mode, table, notes, phone, location } = info;
+
+    // ...
+    try{
+      if(!window.supabaseBridge || !window.supabaseBridge.createOrderSB){
+        throw new Error('Supabase bridge not ready');
+      }
+
+      const order_name  = (mode === 'out') ? 'سفري/توصيل' : '';
+      const notesMerged = (mode === 'out')
+        ? [location ? `الموقع: ${location}` : null, notes || ''].filter(Boolean).join('\n')
+        : (notes || '');
+
+      await window.supabaseBridge.createOrderSB({
+        order_name,
+        phone:   (mode === 'out')   ? (phone || '') : '',
+        table_no:(mode === 'table') ? (table || '') : '',
+        notes: notesMerged,
+        items: orderItems.map(x => ({ id: x.itemId, name: x.name, price: x.price, qty: x.qty }))
+      });
+
+      // ⚡ أبلغ لوحات الأدمن فوراً بقدوم طلب جديد
+      try { window.notifyAdminNewOrder && window.notifyAdminNewOrder(); } catch {}
+
+      // تنظيف السلة وعرض نجاح — [FIX] عرض مرّة واحدة
+      if(!__orderSuccessShown){
+        LS.set('cart', []); updateCartCount(); renderCart(); closeCart();
+        Modal.info('تم إرسال الطلب بنجاح!    .','نجاح');
+        __orderSuccessShown = true;
+      }
+    }catch(e){
+      console.error(e);
+      Modal.info('تعذّر إرسال الطلب، حاول لاحقاً.','خطأ');
+      return;
+    }
+
+    const notifs = LS.get('notifications', []);
+    notifs.unshift({ id: crypto.randomUUID(), type:'order', title:`طلب جديد #${formatInt(orderId)}`, message:`إجمالي: ${formatPrice(total)} ل.س`, time: nowISO(), read:false });
+    LS.set('notifications', notifs);
+
+    // [FIX] امنع التكرار مرة ثانية
+    if(!__orderSuccessShown){
+      LS.set('cart', []); updateCartCount(); renderCart(); closeCart();
+      Modal.info('تم إرسال الطلب بنجاح!    .','نجاح');
+      __orderSuccessShown = true;
+    }
+  });
+}
+
+/* =====================================================
+   Rating
+===================================================== */
+async function rateItem(id, stars){
+  if(!userHasOrderedItem(id)){
+    Modal.info('لا يمكنك التقييم إلا بعد طلب هذا الصنف على هذا الجهاز.','غير مسموح');
+    return;
+  }
+  if(userHasRatedItem(id)){
+    Modal.info('لقد قُمت بتقييم هذا الصنف مسبقاً.','تم التقييم');
+    return;
+  }
+
+  const items = LS.get('menuItems', []);
+  const it = items.find(x => String(x.id) === String(id)); 
+  if(!it) return;
+
+  // تحديث متوسط التقييم محليًا (تفاؤلي)
+  const rating = it.rating || { avg:0, count:0 };
+  const totalScore = rating.avg * rating.count + stars;
+  rating.count += 1;
+  rating.avg = +(totalScore / rating.count).toFixed(2);
+  it.rating = rating;
+  LS.set('menuItems', items);
+
+  // سجل التقييمات المحلي
+  const rs = LS.get('ratings', []);
+  rs.unshift({ id:(crypto?.randomUUID?.()||String(Date.now())), itemId:id, stars, time:nowISO(), name:it.name });
+  LS.set('ratings', rs);
+
+  // قفل التقييم لهذا الجهاز (مرّة واحدة)
+  const rated = LS.get('userRated', {}) || {};
+  rated[String(id)] = true;
+  LS.set('userRated', rated);
+
+  // إشعار محلي
+  const notifs = LS.get('notifications', []);
+  notifs.unshift({ 
+    id:(crypto?.randomUUID?.()||String(Date.now())), 
+    type:'rating',
+    title:`تقييم جديد (${stars}★)`,
+    message: it.name, 
+    time: nowISO(), 
+    read:false 
+  });
+  LS.set('notifications', notifs);
+
+  // حفظ في Supabase (تجاهُل الخطأ إن وُجد)
+  try { await window.supabaseBridge?.createRatingSB?.({ item_id:id, stars }); } 
+  catch(e){ console.warn('persist rating failed', e); }
+
+  renderItems();
+  Modal.info('شكراً لتقييمك!','تم');
+}
+
+
+/* =====================================================
+   Front Sidebar
+===================================================== */
+/* ⚠️ إصلاح تضارب الاسم: استخدم menuBtnFront بدل إعادة تعريف menuBtn */
+const menuBtnFront  = document.querySelector('#menuBtn');
+const frontSidebar  = document.querySelector('#frontSidebar');
+const closeFrontBtn = document.querySelector('#closeFront');
+const sideCatsBox   = document.querySelector('#sideCats');
+
+function openFront(){
+  if(!frontSidebar) return;
+  frontSidebar.classList.add('open');
+  frontSidebar.setAttribute('aria-hidden','false');
+  if(menuBtnFront) menuBtnFront.setAttribute('aria-expanded','true');
+}
+function closeFront(){
+  if(!frontSidebar) return;
+  frontSidebar.classList.remove('open');
+  frontSidebar.setAttribute('aria-hidden','true');
+  if(menuBtnFront) menuBtnFront.setAttribute('aria-expanded','false');
+}
+if(menuBtnFront) menuBtnFront.addEventListener('click', (e)=>{ e.stopPropagation(); openFront(); });
+if(closeFrontBtn) closeFrontBtn.addEventListener('click', closeFront);
+
+document.addEventListener('click', (e)=>{
+  if(!frontSidebar || !frontSidebar.classList.contains('open')) return;
+  const inside = frontSidebar.contains(e.target) || (menuBtnFront && menuBtnFront.contains(e.target));
+  if(!inside) closeFront();
+});
+document.addEventListener('keydown', (e)=>{
+  if(e.key==='Escape'){ closeFront(); closeCart(); closeSearchPanel(); }
+});
+
+// إغلاق القائمة الجانبية عند الضغط على أي رابط داخلها
+document.querySelectorAll('#frontSidebar a').forEach(function(link){
+  link.addEventListener('click', function(){
+    document.getElementById('frontSidebar').classList.remove('open');
+    document.body.classList.remove('sidebar-open');
+    const m = document.getElementById('menuBtn');
+    if(m) m.setAttribute('aria-expanded','false');
+  }, {passive:true});
+});
+
+function renderSideCats(){
+  if(!sideCatsBox) return;
+  const cats = LS.get('categories', []);
+  const list = cats.filter(c=>c.id!=='all');
+  sideCatsBox.innerHTML = list.map(c =>
+    `<a href="#" data-id="${c.id}" class="${state.activeCat===c.id?'active':''}">${c.name}</a>`
+  ).join('');
+  sideCatsBox.querySelectorAll('a').forEach(a=>{
+    a.addEventListener('click', (ev)=>{
+      ev.preventDefault();
+      const id = a.getAttribute('data-id');
+      if(state.activeCat==='sections'){
+        const sec = document.getElementById('sec-'+id);
+        if (sec) sec.scrollIntoView({ behavior:'smooth', block:'start' });
+        // مزامنة الشريط والسلايدر
+        if(catRibbon){
+          catRibbon.querySelectorAll('.pill').forEach(b=> b.classList.toggle('active', b.dataset.id === id));
+          moveCatUnderline();
+        }
+        // إبقاء تمييز الرابط حسب القسم الحالي (hash) في القائمة الأساسية
+        function setActivePrimaryLink(){
+          const links = document.querySelectorAll('.primary-links a');
+          const current = (location.hash || '#home').toLowerCase();
+          links.forEach(a => {
+            const href = (a.getAttribute('href') || '').toLowerCase();
+            a.classList.toggle('active', href === current);
+          });
+        }
+        // شغّلها عند التحميل وتغيّر الهاش
+        document.addEventListener('DOMContentLoaded', setActivePrimaryLink);
+        window.addEventListener('hashchange', setActivePrimaryLink);
+
+      }else{
+        state.activeCat = id;
+        renderItems();
+        renderCats();
+      }
+      closeFront();
+    });
+  });
+}
+renderSideCats();
+
+/* ======= Sync + Storage ======= */
+window.addEventListener('storage', (e)=>{
+  if(e.key==='categories'){ renderSideCats(); renderCats(); }
+  if(e.key==='menuItems'){ renderItems(); updateFabTotal(); }
+});
+
+/* 🔁 IMPORTANT: أزِل once:true لتعمل بعد كل مزامنة عامة */
+document.addEventListener('sb:public-synced', () => {
+  try { renderSideCats(); } catch(e){}
+  try { renderCats(); } catch(e){}
+  try { renderItems(); } catch(e){}
+});
+
+/* تحريك المؤشر بعد تحميل كل شيء (لضمان القياسات) */
+window.addEventListener('load', moveCatUnderline);
+
+document.addEventListener('DOMContentLoaded', setupHours);
+
+function setupHours(){
+  const wrap  = document.getElementById('hoursList');
+  const badge = document.getElementById('openNowBadge');
+  if(!wrap || !badge) return;
+
+  // إعدادات الوقت من المصدر العام
+  const OPEN_MIN  = BUSINESS.OPEN_MIN;   // 09:00
+  const CLOSE_MIN = BUSINESS.CLOSE_MIN;  // 01:00 (+24h)
+
+  // ترتيب الأيام مطابق لـ getDay(): 0=الأحد … 6=السبت
+  const days = ['الأحد','الاثنين','الثلاثاء','الأربعاء','الخميس','الجمعة','السبت'];
+
+  // دقائق منذ بداية الأسبوع (الأحد 00:00)
+  function nowAbsMinutes(){
+    const n = new Date();
+    return n.getDay()*1440 + n.getHours()*60 + n.getMinutes();
+  }
+
+  // هل الآن ضمن أي نافذة عمل (مع مراعاة الامتداد بعد منتصف الليل)؟
+  function isOpenNow(){
+    const now = nowAbsMinutes();
+    const WEEK = 7*1440;
+    for(let d=0; d<7; d++){
+      const start = d*1440 + OPEN_MIN;      // d 09:00
+      const end   = d*1440 + CLOSE_MIN;     // d 25:00 => 01:00 لليوم التالي
+      if( (now >= start && now < end) || (end > WEEK && (now+WEEK) >= start && (now+WEEK) < end) ){
+        return true;
+      }
+    }
+    return false;
+  }
+
+  // فورمات 12 ساعة (1–12 فقط) + ص/م
+  function fmt12(hh, mm){
+    const am = hh < 12;
+    let h = hh % 12; if(h === 0) h = 12;
+    return `${h}:${String(mm).padStart(2,'0')} ${am?'ص':'م'}`;
+  }
+  function fmtFromMinutes(mins){
+    const H = Math.floor((mins%1440)/60);
+    const M = (mins%60);
+    return fmt12(H, M);
+  }
+
+  // بناء الصفوف
+  const today = new Date().getDay(); // 0..6 (0=الأحد)
+  const startStr = fmtFromMinutes(OPEN_MIN);   // 9:00 ص
+  const endStr   = fmtFromMinutes(CLOSE_MIN);  // 1:00 ص
+
+  wrap.innerHTML = days.map((name, idx)=>{
+    const isToday = idx === today;
+    const stClass = isToday ? 'badge ' + (isOpenNow()?'open':'closed') : 'badge neutral';
+    const stText  = isToday ? (isOpenNow()?'مفتوح الآن':'مغلق الآن') : '—';
+    return `
+      <div class="hours-row ${isToday?'today':''}">
+        <div class="day">${name}</div>
+        <div class="time">${startStr} — ${endStr}</div>
+        <div class="st"><span class="${stClass} small">${stText}</span></div>
+      </div>
+    `;
+  }).join('');
+
+  // شارة الحالة أعلى الكارد
+  if(isOpenNow()){
+    badge.className = 'badge small open';
+    badge.textContent = 'مفتوح الآن';
+  }else{
+    badge.className = 'badge small closed';
+    badge.textContent = 'مغلق الآن';
+  }
+}
+/* ==== Force English digits sitewide (٠-٩ / ۰-۹ -> 0-9) ==== */
+(function(){
+  const map = {
+    '٠':'0','١':'1','٢':'2','٣':'3','٤':'4','٥':'5','٦':'6','٧':'7','٨':'8','٩':'9',
+    '۰':'0','۱':'1','۲':'2','۳':'3','۴':'4','۵':'5','۶':'6','۷':'7','۸':'8','۹':'9'
+  };
+  const re = /[٠-٩۰-۹]/g;
+  const norm = s => s.replace(re, ch => map[ch] || ch);
+
+  // بدّل كل النصوص الظاهرة عند التحميل
+  function walk(node){
+    if(node.nodeType === Node.TEXT_NODE){
+      const t = node.nodeValue, nt = norm(t);
+      if(t !== nt) node.nodeValue = nt;
+      return;
+    }
+    if(node.nodeName === 'SCRIPT' || node.nodeName === 'STYLE') return;
+    for(let i=0;i<node.childNodes.length;i++) walk(node.childNodes[i]);
+  }
+
+  document.addEventListener('DOMContentLoaded', () => {
+    walk(document.body);
+
+    // راقب أي محتوى يُضاف ديناميكياً وطبّق التطبيع عليه
+    const mo = new MutationObserver(muts=>{
+      for(const m of muts){
+        if(m.type === 'characterData'){ walk(m.target); }
+        m.addedNodes && m.addedNodes.forEach(n => walk(n));
+      }
+    });
+    mo.observe(document.body, { childList:true, subtree:true, characterData:true });
+
+    // طبّع إدخال المستخدم في الحقول أثناء الكتابة
+    document.addEventListener('input', (e)=>{
+      const el = e.target;
+      if(el.tagName === 'INPUT' || el.tagName === 'TEXTAREA'){
+        const v = el.value, nv = norm(v);
+        if(v !== nv){
+          const pos = el.selectionStart;
+          el.value = nv;
+          try{ el.setSelectionRange(pos, pos); }catch(_){ }
+        }
+      }
+    }, true);
+  });
+})();
+
+/* ======= تقييم النجوم بتفويض نقر واحد صحيح الاتجاه ======= */
+document.addEventListener('click', (e)=>{
+  const starEl = e.target.closest('.stars .star');
+  if(!starEl) return;
+
+  const wrap = starEl.closest('.stars');
+  const id = wrap?.dataset?.id;
+  if(!id) return;
+
+  if(userHasRatedItem(id)){
+    Modal.info('لقد قُمت بتقييم هذا الصنف مسبقاً.','تم التقييم');
+    return;
+  }
+  if(!userHasOrderedItem(id)){
+    Modal.info('لا يمكنك التقييم إلا بعد طلب هذا الصنف على هذا الجهاز.','غير مسموح');
+    return;
+  }
+
+  const all = Array.from(wrap.querySelectorAll('.star')); // ترتيبها DOM = [1,2,3,4,5] (يمين→يسار)
+  const idx = all.indexOf(starEl);                        // 0→نجمة واحدة، 4→5 نجوم
+  const stars = idx + 1;
+
+  rateItem(id, stars);
+});
