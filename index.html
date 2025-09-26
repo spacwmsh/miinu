@@ -16,11 +16,9 @@ const LS = {
 const nowISO = ()=> new Date().toISOString();
 
 function seedIfNeeded(){
-
   // لا نُضيف بيانات تجريبية. فقط نضمن وجود المفاتيح كمصفوفات فارغة
   if(!localStorage.getItem('categories')) LS.set('categories', []);
   if(!localStorage.getItem('menuItems'))  LS.set('menuItems', []);
-
   if(!localStorage.getItem('orders')) LS.set('orders', []);
   if(!localStorage.getItem('notifications')) LS.set('notifications', []);
   if(!localStorage.getItem('ratings')) LS.set('ratings', []);
@@ -30,35 +28,24 @@ function seedIfNeeded(){
 }
 seedIfNeeded();
 
-/* ==== إعدادات ساعات العمل العامة + دوال مساعدة للوقت (استخدمها في كل المواضع) ==== */
-const BUSINESS = { OPEN_MIN: 9*60, CLOSE_MIN: 25*60, BUFFER_MIN: 30 }; // 09:00 → 01:00 (+يوم) مع هامش 30د
-function hm2m(s){
-  if(!s) return 0;
-  const [h,m] = String(s).split(':').map(Number);
-  return (h*60 + (m||0))|0;
-}
-function m2hm(m){
-  m = ((m%1440)+1440)%1440; // طبّع إلى نطاق اليوم
-  const hh = String(Math.floor(m/60)).padStart(2,'0');
-  const mm = String(m%60).padStart(2,'0');
-  return `${hh}:${mm}`;
-}
+/* ==== إعدادات ساعات العمل العامة + دوال مساعدة للوقت ==== */
+const BUSINESS = { OPEN_MIN: 9*60, CLOSE_MIN: 25*60, BUFFER_MIN: 30 }; // 09:00 → 01:00 (+يوم)
+function hm2m(s){ if(!s) return 0; const [h,m] = String(s).split(':').map(Number); return (h*60 + (m||0))|0; }
+function m2hm(m){ m = ((m%1440)+1440)%1440; const hh = String(Math.floor(m/60)).padStart(2,'0'); const mm = String(m%60).padStart(2,'0'); return `${hh}:${mm}`; }
 
-/* ==== Normalize image URL locally (works with http(s), data:, blob:, and storage paths) ==== */
-const DEFAULT_IMG =
-'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="800" height="560"><rect width="100%" height="100%" fill="#f3f4f6"/><text x="50%" y="50%" font-size="28" fill="#9ca3af" text-anchor="middle" dominant-baseline="middle">صورة افتراضية</text></svg>';
-
+/* ==== Normalize image URL ==== */
+const DEFAULT_IMG = 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="800" height="560"><rect width="100%" height="100%" fill="#f3f4f6"/><text x="50%" y="50%" font-size="28" fill="#9ca3af" text-anchor="middle" dominant-baseline="middle">صورة افتراضية</text></svg>';
 function normalizeImgPublic(raw){
   const s = String(raw ?? '').trim();
   if (!s) return DEFAULT_IMG;
 
-  // URL جاهز للاستخدام
-  if (/^(https?:\/\/|data:)/i.test(s)) return s;   // (لا نقبل blob:)
+  // URL جاهز للاستخدام (لا نقبل blob:)
+  if (/^(https?:\/\/|data:)/i.test(s)) return s;
 
   // حماية من قيم خاطئة
   if (s === '[object Object]' || /^[{\[]/.test(s)) return DEFAULT_IMG;
 
-  // حدّد البكت المناسب من النص إن وُجد، وإلا استخدم images
+  // حدّد البكت المناسب وإزالة البادئات
   const hintedBucket =
     /^menu-images\//i.test(s) ? 'menu-images' :
     /^images\//i.test(s)      ? 'images'      : 'images';
@@ -66,14 +53,14 @@ function normalizeImgPublic(raw){
   const path = s.replace(/^(images|menu-images)\//i, '').replace(/^\/+/, '');
   const safePath = path.split('/').map(encodeURIComponent).join('/');
 
-  // جرّب البناء عبر عميل Supabase إن كان متاحًا
+  // Supabase client إن توفر
   try{
     const urlObj = window.supabase?.storage?.from?.(hintedBucket)?.getPublicUrl?.(path);
     const url = urlObj?.data?.publicUrl || '';
     if (url) return url;
   }catch(_){ }
 
-  // خطة احتياطية: نبني الرابط يدويًا
+  // بناء يدوي
   const base = (window.SUPABASE_URL || '').replace(/\/+$/,'');
   if (base) return `${base}/storage/v1/object/public/${hintedBucket}/${safePath}`;
 
@@ -87,12 +74,9 @@ function normalizeImgPublic(raw){
     root:null, title:null, body:null, actions:null, closeBtn:null,
     ensure(){
       if(this.root) return true;
-      this.root = $('#appModal');
-      if(!this.root) return false;
-      this.title   = $('#appModalTitle');
-      this.body    = $('#appModalBody');
-      this.actions = $('#appModalActions');
-      this.closeBtn= $('#appModalClose');
+      this.root = $('#appModal'); if(!this.root) return false;
+      this.title   = $('#appModalTitle'); this.body    = $('#appModalBody');
+      this.actions = $('#appModalActions'); this.closeBtn= $('#appModalClose');
       if(this.closeBtn) this.closeBtn.onclick = ()=>this.hide();
       this.root.addEventListener('click', e=>{ if(e.target===this.root) this.hide(); });
       document.addEventListener('keydown', e=>{ if(e.key==='Escape') this.hide(); });
@@ -154,7 +138,7 @@ const fabTotalEl  = document.querySelector('#fabTotal'); // قد يكون موج
 /* ===== Backdrop + Toast ===== */
 const backdrop = document.getElementById('backdrop');
 
-/* ---------- Inject minimal CSS for moving underline (إن لم يكن موجودًا في styles.css) ---------- */
+/* ---------- Inject minimal CSS for moving underline ---------- */
 function injectUnderlineStyle(){
   if(document.getElementById('catUnderlineStyle')) return;
   const s = document.createElement('style');
@@ -175,42 +159,32 @@ injectUnderlineStyle();
 function ensureCatUnderline(){
   if(!catRibbon) return null;
   let u = catRibbon.querySelector('.cat-underline');
-  if(!u){
-    u = document.createElement('span');
-    u.className = 'cat-underline';
-    catRibbon.appendChild(u);
-  }
+  if(!u){ u = document.createElement('span'); u.className = 'cat-underline'; catRibbon.appendChild(u); }
   return u;
 }
 function moveCatUnderline(){
-  const u = ensureCatUnderline();
-  if(!u || !catRibbon) return;
+  const u = ensureCatUnderline(); if(!u || !catRibbon) return;
   const active = catRibbon.querySelector('.pill.active') || catRibbon.querySelector('.pill');
   if(!active){ u.style.width='0px'; return; }
   const w = active.offsetWidth;
-  const x = active.offsetLeft - catRibbon.scrollLeft; // تعويض سكرول أفقي للرِبن
-  u.style.width = w + 'px';
-  u.style.transform = `translateX(${x}px)`;
+  const x = active.offsetLeft - catRibbon.scrollLeft;
+  u.style.width = w + 'px'; u.style.transform = `translateX(${x}px)`;
 }
 window.addEventListener('resize', moveCatUnderline);
 if(catRibbon){ catRibbon.addEventListener('scroll', moveCatUnderline, {passive:true}); }
 
-/* ===== حركة البداية: انقل السلايدر من "كل الأقسام" إلى التالي عند أول تحميل ===== */
+/* ===== حركة البداية ===== */
 let didInitialKick = false;
 function kickUnderlineToNext(){
   if(didInitialKick || !catRibbon) return;
   const pills = Array.from(catRibbon.querySelectorAll('.pill'));
   if(pills.length < 2) return;
-  // ابحث عن زر "كل الأقسام"
   const first = pills.find(p => p.dataset.id === 'sections') || pills[0];
   const idx   = pills.indexOf(first);
   const next  = pills[idx + 1] || pills[1];
   if(!next) return;
-
-  // فعّل الـ active بصريًا على التالي (لا نغيّر state.activeCat)
   catRibbon.querySelectorAll('.pill').forEach(b => b.classList.toggle('active', b === next));
   didInitialKick = true;
-  // حرّك السلايدر بعد تبديل الـ active لإظهار الأنيميشن
   requestAnimationFrame(() => moveCatUnderline());
 }
 
@@ -227,14 +201,12 @@ function setupSectionSpy(){
     if(!vis) return;
     const catId = vis.target.id.replace('sec-','');
 
-    // حدّث شريط الأقسام
     if(catRibbon){
       catRibbon.querySelectorAll('.pill').forEach(btn=>{
         btn.classList.toggle('active', btn.dataset.id === catId);
       });
       moveCatUnderline();
     }
-    // حدّث قائمة الجانب
     const side = document.querySelector('#sideCats');
     if(side){
       side.querySelectorAll('a').forEach(a=>{
@@ -275,8 +247,7 @@ function openSearchPanel(){
   setTimeout(()=> searchInput && searchInput.focus(), 120);
 }
 
-/* ===== Hero: Reserve Modal =====
-   (تاريخ منفصل + وقت منفصل + نوع الحجز + ملاحظات + تحقق ذكي) */
+/* ===== Hero: Reserve Modal ===== */
 document.addEventListener('DOMContentLoaded', ()=>{
   const reserveBtn = document.getElementById('reserveBtn');
   if (!reserveBtn) return;
@@ -288,12 +259,10 @@ document.addEventListener('DOMContentLoaded', ()=>{
           <label class="label" for="rName">الاسم <span class="req">*</span></label>
           <input id="rName" class="input-md" type="text" autocomplete="name" />
         </div>
-
         <div class="form-row">
           <label class="label" for="rPhone">رقم الجوال <span class="req">*</span></label>
           <input id="rPhone" class="input-md" type="tel" inputmode="tel" placeholder="05xxxxxxxx" />
         </div>
-
         <div class="form-row" style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
           <div>
             <label class="label" for="rDate">التاريخ <span class="req">*</span></label>
@@ -304,12 +273,10 @@ document.addEventListener('DOMContentLoaded', ()=>{
             <input id="rTime" class="input-md" type="time" step="900" />
           </div>
         </div>
-
         <div class="form-row">
           <label class="label" for="rPeople">عدد الأشخاص <span class="req">*</span></label>
           <input id="rPeople" class="input-md" type="number" min="1" value="2" />
         </div>
-
         <div class="form-row">
           <label class="label" for="rType">نوع الحجز</label>
           <select id="rType" class="input-md">
@@ -321,18 +288,16 @@ document.addEventListener('DOMContentLoaded', ()=>{
         </div>
         <div id="reserveErr" class="form-error small" style="display:none;color:#b91c1c"></div>
       </form>
-        <div class="form-row">
-          <label class="label" for="rNotes">ملاحظات (اختياري)</label>
-          <textarea id="rNotes" class="input-md" rows="3" placeholder="مثال: تزيين بسيط لعيد ميلاد، قرب قسم العائلات..."></textarea>
-        </div>
-
+      <div class="form-row">
+        <label class="label" for="rNotes">ملاحظات (اختياري)</label>
+        <textarea id="rNotes" class="input-md" rows="3" placeholder="مثال: تزيين بسيط لعيد ميلاد، قرب قسم العائلات..."></textarea>
+      </div>
     `;
 
     const ok = document.createElement('button'); ok.className='btn btn-primary'; ok.textContent='تأكيد الحجز';
     const cancel = document.createElement('button'); cancel.className='btn btn-ghost';  cancel.textContent='إلغاء';
     cancel.onclick = ()=> Modal.hide();
 
-    // [FIX] اجعل الحدث async
     ok.onclick = async ()=>{
       const name  = document.getElementById('rName')?.value.trim()  || '';
       const phone = document.getElementById('rPhone')?.value.trim() || '';
@@ -358,20 +323,15 @@ document.addEventListener('DOMContentLoaded', ()=>{
         const OPEN_MIN  = BUSINESS.OPEN_MIN;
         const CLOSE_MIN = BUSINESS.CLOSE_MIN;
         const minM = OPEN_MIN + BUSINESS.BUFFER_MIN; // 09:30
-        const maxM = CLOSE_MIN - BUSINESS.BUFFER_MIN; // 00:30 (اليوم التالي)
+        const maxM = CLOSE_MIN - BUSINESS.BUFFER_MIN; // 00:30 (+يوم)
         const t    = hm2m(time);
 
         if(maxM >= 1440){
-          // النطاق يمرّ بعد منتصف الليل: 09:30–23:59 أو 00:00–00:30
-          const maxToday = maxM - 1440; // دقائق مسموحة من اليوم التالي
+          const maxToday = maxM - 1440;
           const ok = (t >= minM) || (t <= maxToday);
-          if(!ok){
-            errors.push(`الوقت المسموح: ${m2hm(minM)}–23:59 أو 00:00–${m2hm(maxToday)}.`);
-          }
+          if(!ok){ errors.push(`الوقت المسموح: ${m2hm(minM)}–23:59 أو 00:00–${m2hm(maxToday)}.`); }
         }else{
-          if(t < minM || t > maxM){
-            errors.push(`الوقت المسموح: ${m2hm(minM)}–${m2hm(maxM)}.`);
-          }
+          if(t < minM || t > maxM){ errors.push(`الوقت المسموح: ${m2hm(minM)}–${m2hm(maxM)}.`); }
         }
       }
 
@@ -390,20 +350,17 @@ document.addEventListener('DOMContentLoaded', ()=>{
         return;
       }
 
-      // [FIX] تحقّق من توفر الجسر
       if(!window.supabaseBridge || !window.supabaseBridge.createReservationSB){
         Modal.info('الخدمة غير متاحة الآن. تأكد من تحميل Supabase والجسر.','تعذّر الإرسال');
         return;
       }
 
-      // [FIX] لفّ النداء بـ try/catch
       try{
         await window.supabaseBridge.createReservationSB({
           name, phone, iso: new Date(`${date}T${time}`).toISOString(),
           people: ppl, kind: type, notes, duration_minutes: 90
         });
 
-        // إشعار لصفحة لوحة التحكم
         const ns = LS.get('notifications', []);
         ns.unshift({
           id: crypto.randomUUID(),
@@ -417,9 +374,8 @@ document.addEventListener('DOMContentLoaded', ()=>{
       }catch(e){
         console.error(e);
         Modal.info('تعذّر إرسال الحجز، حاول لاحقًا.','خطأ');
-        return; // لا تُظهر نجاح عند الفشل
+        return;
       }
-      /* }catch(e){} */ // [FIX] تحييد الـ catch القديم
 
       Modal.hide();
       Modal.info('تم استلام طلب الحجز وسنقوم بالتواصل لتأكيده.','حجز طاولة');
@@ -427,24 +383,17 @@ document.addEventListener('DOMContentLoaded', ()=>{
 
     Modal.show('حجز طاولة', html, [ok, cancel]);
 
-    // تهيئة الحقول: أقل تاريخ = اليوم، والوقت ضمن ساعات العمل مع مراعاة ما بعد منتصف الليل
+    // تهيئة الحقول
     const rDate = document.getElementById('rDate');
     const rTime = document.getElementById('rTime');
     const todayStr = (()=>{ const d=new Date(); const m=String(d.getMonth()+1).padStart(2,'0'); const dd=String(d.getDate()).padStart(2,'0'); return `${d.getFullYear()}-${m}-${dd}`; })();
     if(rDate){ rDate.min = todayStr; if(!rDate.value) rDate.value = todayStr; }
     if(rTime){
-      const minM = BUSINESS.OPEN_MIN  + BUSINESS.BUFFER_MIN; // 09:30
-      const maxM = BUSINESS.CLOSE_MIN - BUSINESS.BUFFER_MIN; // 00:30 (+يوم)
-
-      if(maxM < 1440){
-        rTime.min = m2hm(minM);
-        rTime.max = m2hm(maxM);
-      }else{
-        // لا يمكن تمثيل النطاق الملتف بـ min/max، نعتمد على تحقق JS فقط
-        rTime.removeAttribute('min');
-        rTime.removeAttribute('max');
-      }
-      rTime.step = 900; // كل 15 دقيقة
+      const minM = BUSINESS.OPEN_MIN  + BUSINESS.BUFFER_MIN;
+      const maxM = BUSINESS.CLOSE_MIN - BUSINESS.BUFFER_MIN;
+      if(maxM < 1440){ rTime.min = m2hm(minM); rTime.max = m2hm(maxM); }
+      else{ rTime.removeAttribute('min'); rTime.removeAttribute('max'); }
+      rTime.step = 900;
     }
     setTimeout(()=> document.getElementById('rName')?.focus(), 50);
   });
@@ -462,18 +411,12 @@ function closeSearchPanel(){
 if(searchToggle) searchToggle.addEventListener('click', (e)=>{ e.stopPropagation(); openSearchPanel(); });
 if(searchClose)  searchClose .addEventListener('click', closeSearchPanel);
 
-/* ===== تعديل مهم: لا تُغلق البحث عند النقر داخل شبكة النتائج (#itemsGrid) أو داخل عناصره ===== */
+/* ===== تعديل: لا تُغلق البحث عند النقر داخل شبكة النتائج ===== */
 document.addEventListener('click', (e)=>{
   if(!searchPanel || !searchPanel.classList.contains('open')) return;
-
   const path = typeof e.composedPath === 'function' ? e.composedPath() : null;
   const isInside = (el)=> el && (path ? path.includes(el) : el.contains(e.target));
-
-  const inside =
-    isInside(searchPanel) ||
-    (searchToggle && isInside(searchToggle)) ||
-    (grid && isInside(grid)); // ✅ اعتبر شبكة النتائج كجزء من البحث
-
+  const inside = isInside(searchPanel) || (searchToggle && isInside(searchToggle)) || (grid && isInside(grid));
   if(!inside) closeSearchPanel();
 });
 
@@ -483,29 +426,23 @@ document.addEventListener('click', (e)=>{
 const state = { activeCat:'sections', search:'' };
 const catIcons = { 'all':'🍽️','sections':'🗂️','starters':'🥗','mains':'🍛','desserts':'🍰','drinks':'🥤' };
 
-/* ==== تنسيق أرقام إنجليزي لجميع العروض ==== */
-const formatPrice = (n)=> Number(n||0).toLocaleString('en-US'); // أسعار
-const formatInt   = (n)=> Number(n||0).toLocaleString('en-US'); // أعداد صحيحة (عدادات)
-const formatAvg   = (n)=> Number(n||0).toLocaleString('en-US', { minimumFractionDigits:1, maximumFractionDigits:1 }); // متوسط
+/* ==== تنسيقات أرقام ==== */
+const formatPrice = (n)=> Number(n||0).toLocaleString('en-US');
+const formatInt   = (n)=> Number(n||0).toLocaleString('en-US');
+const formatAvg   = (n)=> Number(n||0).toLocaleString('en-US', { minimumFractionDigits:1, maximumFractionDigits:1 });
 
-/* ===== نجمة بملء جزئي (RTL fill) مع حدود ===== */
+/* ===== SVG نجوم ===== */
 function starSVGFrac(fill, key){
   const w = Math.max(0, Math.min(1, Number(fill)||0));
   const clipId = `clip-${key}`;
   const d = "M12 17.27L18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21z";
   const width = (w*24).toFixed(2);
-  const x = (24 - w*24).toFixed(2); // ابدأ القص من اليمين لليسار
+  const x = (24 - w*24).toFixed(2);
   return `
     <svg class="star" viewBox="0 0 24 24" width="20" height="20" aria-hidden="true">
-      <defs>
-        <clipPath id="${clipId}">
-          <rect x="${x}" y="0" width="${width}" height="24"></rect>
-        </clipPath>
-      </defs>
+      <defs><clipPath id="${clipId}"><rect x="${x}" y="0" width="${width}" height="24"></rect></clipPath></defs>
       <path d="${d}" fill="#e5e7eb" stroke="#9ca3af" stroke-width="1.2"></path>
-      <g clip-path="url(#${clipId})">
-        <path d="${d}" fill="#F5A524" stroke="#b45309" stroke-width="1.2"></path>
-      </g>
+      <g clip-path="url(#${clipId})"><path d="${d}" fill="#F5A524" stroke="#b45309" stroke-width="1.2"></path></g>
     </svg>
   `;
 }
@@ -516,10 +453,7 @@ function updateFabTotal(){
   if(!el) return;
   const items = LS.get('menuItems', []);
   const cart  = LS.get('cart', []);
-  const total = cart.reduce((s,ci)=>{
-    const it = items.find(x=>x.id===ci.id);
-    return s + (it?.price||0)*ci.qty;
-  }, 0);
+  const total = cart.reduce((s,ci)=>{ const it = items.find(x=>x.id===ci.id); return s + (it?.price||0)*ci.qty; }, 0);
   el.textContent = formatPrice(total);
 }
 
@@ -528,8 +462,7 @@ function renderCats(){
   const list = cats.filter(c => c.id !== 'all');
   const pseudo = { id:'sections', name:'كل الأقسام' };
   const i = list.findIndex(c => c.id === 'starters');
-  if (i > -1) list.splice(i, 0, pseudo);
-  else list.unshift(pseudo);
+  if (i > -1) list.splice(i, 0, pseudo); else list.unshift(pseudo);
 
   function drawInto(container){
     if(!container) return;
@@ -538,7 +471,7 @@ function renderCats(){
       const btn = document.createElement('button');
       const isActive = state.activeCat===c.id;
       btn.className = 'pill' + (isActive ? ' active' : '');
-      btn.dataset.id = c.id; // مهم للسلايدر والتتبّع
+      btn.dataset.id = c.id;
       const ico = catIcons[c.id] ? `<span class="ico">${catIcons[c.id]}</span>` : '';
       btn.innerHTML = `${ico}<span>${c.name}</span>`;
       btn.onclick = ()=>{
@@ -549,7 +482,6 @@ function renderCats(){
         } else if (state.activeCat === 'sections'){
           const sec = document.getElementById('sec-'+c.id);
           if (sec) sec.scrollIntoView({ behavior:'smooth', block:'start' });
-          // فعّلها فورًا على الشريط ليظهر المؤشر مباشرةً
           if(catRibbon){
             catRibbon.querySelectorAll('.pill').forEach(b=> b.classList.toggle('active', b===btn));
             moveCatUnderline();
@@ -564,10 +496,8 @@ function renderCats(){
 
   drawInto(catPills);
   drawInto(catRibbon);
-  // حرّك المؤشر بعد اكتمال الرسم
   moveCatUnderline();
 
-  // عند البداية فقط: حرّك السلايدر من "كل الأقسام" إلى التالي (تأثير بصري)
   if (state.activeCat === 'sections' && !didInitialKick) {
     requestAnimationFrame(() => setTimeout(kickUnderlineToNext, 60));
   }
@@ -580,39 +510,26 @@ function filteredItems(){
                            (state.search==='' || i.name.includes(state.search) || i.desc?.includes(state.search)));
 }
 
-/* ===== Rating helpers ===== */
 function userHasOrderedItem(itemId){
   const orders = LS.get('orders', []);
   const target = String(itemId);
-  return orders.some(o =>
-    Array.isArray(o.items) &&
-    o.items.some(it => String(it.itemId ?? it.id ?? '') === target)
-  );
+  return orders.some(o => Array.isArray(o.items) && o.items.some(it => String(it.itemId ?? it.id ?? '') === target));
 }
+function userHasRatedItem(itemId){ const rated = LS.get('userRated', {}); return !!rated[itemId]; }
 
-function userHasRatedItem(itemId){
-  const rated = LS.get('userRated', {});
-  return !!rated[itemId];
-}
-
+/* ===== رسم العناصر ===== */
 function renderItems(){
   if(!grid) return;
-
   const allItems = LS.get('menuItems', []).filter(i=>i.available!==false);
   const q = (state.search||'').trim();
 
-  // === بطاقة: السعر يمين + زر يسار + نجوم RTL جزئية + متوسط ملون ===
   function cardHTML(i, idx){
-    const eager = (Number(idx)||0) < 10; // أول 10 صور بسرعة عالية
+    const eager = (Number(idx)||0) < 10; // أول 10 صور تُحمّل بأولوية أعلى
     const already = userHasRatedItem(i.id);
     const avgRaw  = Math.max(0, Math.min(5, Number(i.rating?.avg || 0)));
     const avgTxt  = formatAvg(avgRaw);
     const avgClass= avgRaw >= 4.5 ? 'rate-good' : (avgRaw >= 3 ? 'rate-mid' : 'rate-bad');
 
-    // ⚡ تحسينات الصور:
-    // - sizes لإعطاء المتصفح حجم العرض المتوقع (تخفيف الداونلود)
-    // - content-visibility:auto لتأجيل الرسم خارج الشاشة
-    // - إزالة onerror المكرر
     return `
       <div class="card">
         <div class="item-img-wrap skeleton">
@@ -635,24 +552,20 @@ function renderItems(){
             <h3>${i.name}</h3>
             <div class="price"><span>${formatPrice(i.price)}</span> ل.س</div>
           </div>
-
           <div class="item-desc">${i.desc||''}</div>
-
           <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;flex-wrap:wrap;gap:6px">
             <div class="stars ${already?'is-rated':''}" data-id="${i.id}" title="${already?'تم التقييم سابقاً':'اضغط للتقييم'}">
               ${[1,2,3,4,5].map(n=>{
-                const f = Math.max(0, Math.min(1, avgRaw - (n - 1))); // املأ من اليمين إلى اليسار
+                const f = Math.max(0, Math.min(1, avgRaw - (n - 1)));
                 return starSVGFrac(f, `${i.id}-${n}`);
               }).join('')}
               <span class="avg-badge ${avgClass}" title="متوسط التقييم">${avgTxt}</span>
               <span class="small" style="margin-right:6px">(${formatInt(i.rating?.count||0)})</span>
             </div>
           </div>
-
           <div class="item-actions">
             <button class="btn btn-primary" onclick="addToCart('${i.id}', event)">أضِف إلى السلة</button>
           </div>
-
         </div>
       </div>
     `;
@@ -663,17 +576,12 @@ function renderItems(){
     const cats = LS.get('categories', []).filter(c=>c.id!=='all');
     let html = '';
     cats.forEach(c=>{
-      const arr = allItems.filter(i =>
-        i.catId === c.id && (q==='""' || i.name.includes(q) || i.desc?.includes(q))
-      );
+      const arr = allItems.filter(i => i.catId === c.id && (q==='""' || i.name.includes(q) || i.desc?.includes(q)));
       if(arr.length===0) return;
-
       html += `
         <section class="menu-section" id="sec-${c.id}">
           <div class="card section-card">
-            <div class="section-head">
-              <h2 class="section-title">${c.name}</h2>
-            </div>
+            <div class="section-head"><h2 class="section-title">${c.name}</h2></div>
             <div class="grid grid-3">
               ${arr.map((it,idx)=>cardHTML(it, idx)).join('')}
             </div>
@@ -681,12 +589,8 @@ function renderItems(){
         </section>
       `;
     });
-
     grid.innerHTML = html || '<div class="small" style="color:var(--muted)">لا يوجد أصناف مطابقة.</div>';
-
-    // فعِّل تتبّع الأقسام في وضع "كل الأقسام"
     setupSectionSpy();
-
   } else {
     grid.className = 'grid grid-3';
     const items = allItems.filter(i=>
@@ -694,13 +598,9 @@ function renderItems(){
       (q==='' || i.name.includes(q) || i.desc?.includes(q))
     );
     grid.innerHTML = items.map((it,idx)=>cardHTML(it, idx)).join('');
-
-    // أوقف التتبّع في الوضع العادي وحرّك المؤشر لمواءمة الحبة النشطة
     if(sectionObserver){ sectionObserver.disconnect(); sectionObserver = null; }
     moveCatUnderline();
   }
-
-  // ⚠️ أزلنا ربط النقر لكل نجمة هنا لتفادي الازدواجية؛ معالج النقر العام موجود أسفل الملف.
 }
 renderItems();
 
@@ -717,28 +617,20 @@ function setCart(c){ LS.set('cart', c); updateCartCount(); updateFabTotal(); }
 function updateCartCount(){
   const c = getCart();
   const n = c.reduce((a,b)=>a+b.qty,0);
-
   if(cartCount){
     if(n>0){ cartCount.style.display='inline-block'; cartCount.textContent = formatInt(n); }
     else{ cartCount.style.display='none'; }
   }
   if(cartFabCount){
-    if(n>0){
-      cartFabCount.textContent = formatInt(n);
-      cartFabCount.hidden = false;
-      cartFabCount.style.display = '';
-    }else{
-      cartFabCount.hidden = true;
-      cartFabCount.style.display = 'none';
-    }
+    if(n>0){ cartFabCount.textContent = formatInt(n); cartFabCount.hidden = false; cartFabCount.style.display = ''; }
+    else{ cartFabCount.hidden = true; cartFabCount.style.display = 'none'; }
   }
 }
 updateCartCount();
 
-/* ====== إنشاء/تفعيل زر السلة العائم (FAB) ====== */
+/* ===== FAB ===== */
 (function initFab(){
   try{
-    // إن لم يكن موجودًا في الـ HTML لأي سبب، أنشئه (بالإجمالي):
     if(!cartFab){
       const btn = document.createElement('button');
       btn.id = 'cartFab';
@@ -756,22 +648,17 @@ updateCartCount();
       cartFab = btn;
       cartFabCount = btn.querySelector('#cartFabCount');
     }
-    // منع إغلاق السلة فور النقر على الـ FAB
-    if(cartFab){
-      cartFab.addEventListener('click', (e)=>{ e.stopPropagation(); openCart(); });
-    }
-    updateCartCount();
-    updateFabTotal();
+    if(cartFab){ cartFab.addEventListener('click', (e)=>{ e.stopPropagation(); openCart(); }); }
+    updateCartCount(); updateFabTotal();
   }catch(e){}
 })();
 
-/* ===== تعديل: استقبل الحدث وأوقف انتشاره لمنع إغلاق البحث عند الإضافة ===== */
+/* ===== إضافة إلى السلة ===== */
 function addToCart(id, ev){
   if(ev) ev.stopPropagation();
   const cart = getCart();
   const existing = cart.find(x=>x.id===id);
-  if(existing) existing.qty++;
-  else cart.push({id, qty:1});
+  if(existing) existing.qty++; else cart.push({id, qty:1});
   setCart(cart);
   Toast.show('أُضيفت للسلة');
 }
@@ -798,22 +685,14 @@ function closeCart(){
 }
 if(cartBtn) cartBtn.addEventListener('click', openCart);
 if(closeDrawerBtn) closeDrawerBtn.addEventListener('click', closeCart);
-
-// إغلاق من الخلفية
 if(backdrop){ backdrop.addEventListener('click', ()=> closeCart()); }
 
-/* === إغلاق السلة عند النقر خارجها — نسخة محصّنة بـ composedPath === */
+/* === إغلاق السلة عند النقر خارجها === */
 document.addEventListener('click', function (e) {
   if(!cartDrawer || !cartDrawer.classList.contains('open')) return;
-
   const path = typeof e.composedPath === 'function' ? e.composedPath() : null;
   const isInside = (node)=> node && (path ? path.includes(node) : node.contains(e.target));
-
-  const inside =
-    isInside(cartDrawer) ||
-    (cartFab && isInside(cartFab)) ||
-    (cartBtn && isInside(cartBtn));
-
+  const inside = isInside(cartDrawer) || (cartFab && isInside(cartFab)) || (cartBtn && isInside(cartBtn));
   if(!inside) closeCart();
 });
 
@@ -830,18 +709,17 @@ function renderCart(){
   }
 
   cart.forEach(ci=>{
-    const item = items.find(x=>x.id===ci.id);
-    if(!item) return;
-    const sum = item.price * ci.qty;
-    total += sum;
+    const item = items.find(x=>x.id===ci.id); if(!item) return;
+    const sum = item.price * ci.qty; total += sum;
 
     const row = document.createElement('div');
     row.className='cart-item';
     row.innerHTML = `
-      <img src="${normalizeImgPublic(item.img)}"
-           loading="lazy" decoding="async" alt="${item.name}"
-           sizes="(max-width:640px) 30vw, 15vw"
-           onerror="this.onerror=null;this.src='https://images.unsplash.com/photo-1543352634-8730b1c3c34b?q=80&w=600&auto=format&fit=crop'"/>
+      <img
+        src="${normalizeImgPublic(item.img)}"
+        loading="lazy" decoding="async" alt="${item.name}"
+        sizes="(max-width:640px) 30vw, 15vw"
+        onerror="this.onerror=null;this.src='https://images.unsplash.com/photo-1543352634-8730b1c3c34b?q=80&w=600&auto=format&fit=crop'"/>
       <div style="flex:1">
         <div style="display:flex;justify-content:space-between;align-items:center">
           <strong>${item.name}</strong>
@@ -862,30 +740,15 @@ function renderCart(){
   updateFabTotal();
 }
 
-/* ===== دوال الكمية (توقف انتشار الحدث) ===== */
-function incQty(id, ev){
-  if(ev) ev.stopPropagation();
-  const c=getCart(); const x=c.find(i=>i.id===id);
-  if(x){ x.qty++; setCart(c); renderCart(); }
-}
+/* ===== دوال الكمية ===== */
+function incQty(id, ev){ if(ev) ev.stopPropagation(); const c=getCart(); const x=c.find(i=>i.id===id); if(x){ x.qty++; setCart(c); renderCart(); } }
 function decQty(id, ev){
   if(ev) ev.stopPropagation();
   const c=getCart(); const x=c.find(i=>i.id===id);
-  if(x){
-    x.qty--;
-    if(x.qty<=0){ return removeFromCart(id, ev); }
-    setCart(c); renderCart();
-  }
+  if(x){ x.qty--; if(x.qty<=0){ return removeFromCart(id, ev); } setCart(c); renderCart(); }
 }
-function removeFromCart(id, ev){
-  if(ev) ev.stopPropagation();
-  const c=getCart().filter(i=>i.id!==id);
-  setCart(c); renderCart();
-}
+function removeFromCart(id, ev){ if(ev) ev.stopPropagation(); const c=getCart().filter(i=>i.id!==id); setCart(c); renderCart(); }
 
-/* ============================
-   نافذة إدخال بيانات الطلب
-===============================*/
 /* ============================
    نافذة إدخال بيانات الطلب (جديدة)
 ===============================*/
@@ -897,19 +760,16 @@ function askOrderInfo(){
           <button type="button" id="tabTable" class="btn btn-primary">طاولة</button>
           <button type="button" id="tabOut"   class="btn btn-ghost">سفري/توصيل</button>
         </div>
-
         <div id="panelTable">
           <div class="form-row">
             <label class="label" for="tableInput">رقم الطاولة <span class="req">*</span></label>
             <input id="tableInput" class="input-md" type="text" inputmode="numeric" pattern="[0-9]*" dir="auto" placeholder="مثال: 12" />
           </div>
-
           <div class="form-row">
             <label class="label" for="notesInput">ملاحظات <span class="small" style="color:var(--muted)">(اختياري)</span></label>
             <textarea id="notesInput" class="input-md" rows="3" placeholder="مثلاً: بدون بصل / زيادة صوص"></textarea>
           </div>
         </div>
-
         <div id="panelOut" style="display:none">
           <div class="form-row">
             <label class="label" for="dlvyLoc">الموقع</label>
@@ -924,7 +784,6 @@ function askOrderInfo(){
             <textarea id="dlvyNotes" class="input-md" rows="3" placeholder="مثلاً: البيت خلف المسجد، اتصل قبل الوصول"></textarea>
           </div>
         </div>
-
         <div id="orderErr" class="form-error small" style="display:none"></div>
       </form>
     `;
@@ -980,7 +839,6 @@ function askOrderInfo(){
 
     Modal.show('إتمام الطلب', html, [ok, cancel]);
 
-    // تركيز تلقائي + تبديل الوضع + دعم Enter للإرسال
     setTimeout(()=>{
       const tabTable = document.querySelector('#tabTable');
       const tabOut   = document.querySelector('#tabOut');
@@ -1019,27 +877,21 @@ if(checkoutBtn){
   checkoutBtn.addEventListener('click', async ()=>{
     const cart = getCart(); if(cart.length===0) return;
     const items = LS.get('menuItems', []);
-    let total=0;
-
-    // [FIX] جهّز عناصر الطلب والإجمالي ومعرّف للعرض
     const orderItems = cart.map(ci=>{
       const it = items.find(x=>x.id===ci.id) || {};
       return { itemId: ci.id, name: it.name || '', price: Number(it.price||0), qty: ci.qty };
     });
-    total = orderItems.reduce((s,x)=> s + x.price * x.qty, 0);
+    const total = orderItems.reduce((s,x)=> s + x.price * x.qty, 0);
     let orderId = Math.floor(Date.now()/1000);
     let __orderSuccessShown = false;
 
-    const info = await askOrderInfo();
-    if(!info) return;
+    const info = await askOrderInfo(); if(!info) return;
     const { mode, table, notes, phone, location } = info;
 
-    // ...
     try{
       if(!window.supabaseBridge || !window.supabaseBridge.createOrderSB){
         throw new Error('Supabase bridge not ready');
       }
-
       const order_name  = (mode === 'out') ? 'سفري/توصيل' : '';
       const notesMerged = (mode === 'out')
         ? [location ? `الموقع: ${location}` : null, notes || ''].filter(Boolean).join('\n')
@@ -1053,10 +905,8 @@ if(checkoutBtn){
         items: orderItems.map(x => ({ id: x.itemId, name: x.name, price: x.price, qty: x.qty }))
       });
 
-      // ⚡ أبلغ لوحات الأدمن فوراً بقدوم طلب جديد
       try { window.notifyAdminNewOrder && window.notifyAdminNewOrder(); } catch {}
 
-      // تنظيف السلة وعرض نجاح — [FIX] عرض مرّة واحدة
       if(!__orderSuccessShown){
         LS.set('cart', []); updateCartCount(); renderCart(); closeCart();
         Modal.info('تم إرسال الطلب بنجاح!    .','نجاح');
@@ -1072,7 +922,6 @@ if(checkoutBtn){
     notifs.unshift({ id: crypto.randomUUID(), type:'order', title:`طلب جديد #${formatInt(orderId)}`, message:`إجمالي: ${formatPrice(total)} ل.س`, time: nowISO(), read:false });
     LS.set('notifications', notifs);
 
-    // [FIX] امنع التكرار مرة ثانية
     if(!__orderSuccessShown){
       LS.set('cart', []); updateCartCount(); renderCart(); closeCart();
       Modal.info('تم إرسال الطلب بنجاح!    .','نجاح');
@@ -1085,62 +934,38 @@ if(checkoutBtn){
    Rating
 ===================================================== */
 async function rateItem(id, stars){
-  if(!userHasOrderedItem(id)){
-    Modal.info('لا يمكنك التقييم إلا بعد طلب هذا الصنف على هذا الجهاز.','غير مسموح');
-    return;
-  }
-  if(userHasRatedItem(id)){
-    Modal.info('لقد قُمت بتقييم هذا الصنف مسبقاً.','تم التقييم');
-    return;
-  }
+  if(!userHasOrderedItem(id)){ Modal.info('لا يمكنك التقييم إلا بعد طلب هذا الصنف على هذا الجهاز.','غير مسموح'); return; }
+  if(userHasRatedItem(id)){   Modal.info('لقد قُمت بتقييم هذا الصنف مسبقاً.','تم التقييم'); return; }
 
   const items = LS.get('menuItems', []);
   const it = items.find(x => String(x.id) === String(id)); 
   if(!it) return;
 
-  // تحديث متوسط التقييم محليًا (تفاؤلي)
   const rating = it.rating || { avg:0, count:0 };
   const totalScore = rating.avg * rating.count + stars;
-  rating.count += 1;
-  rating.avg = +(totalScore / rating.count).toFixed(2);
-  it.rating = rating;
-  LS.set('menuItems', items);
+  rating.count += 1; rating.avg = +(totalScore / rating.count).toFixed(2);
+  it.rating = rating; LS.set('menuItems', items);
 
-  // سجل التقييمات المحلي
   const rs = LS.get('ratings', []);
   rs.unshift({ id:(crypto?.randomUUID?.()||String(Date.now())), itemId:id, stars, time:nowISO(), name:it.name });
   LS.set('ratings', rs);
 
-  // قفل التقييم لهذا الجهاز (مرّة واحدة)
-  const rated = LS.get('userRated', {}) || {};
-  rated[String(id)] = true;
-  LS.set('userRated', rated);
+  const rated = LS.get('userRated', {}) || {}; rated[String(id)] = true; LS.set('userRated', rated);
 
-  // إشعار محلي
   const notifs = LS.get('notifications', []);
-  notifs.unshift({ 
-    id:(crypto?.randomUUID?.()||String(Date.now())), 
-    type:'rating',
-    title:`تقييم جديد (${stars}★)`,
-    message: it.name, 
-    time: nowISO(), 
-    read:false 
-  });
+  notifs.unshift({ id:(crypto?.randomUUID?.()||String(Date.now())), type:'rating', title:`تقييم جديد (${stars}★)`, message: it.name, time: nowISO(), read:false });
   LS.set('notifications', notifs);
 
-  // حفظ في Supabase (تجاهُل الخطأ إن وُجد)
-  try { await window.supabaseBridge?.createRatingSB?.({ item_id:id, stars }); } 
-  catch(e){ console.warn('persist rating failed', e); }
+  try { await window.supabaseBridge?.createRatingSB?.({ item_id:id, stars }); } catch(e){ console.warn('persist rating failed', e); }
 
   renderItems();
   Modal.info('شكراً لتقييمك!','تم');
 }
 
-
 /* =====================================================
    Front Sidebar
 ===================================================== */
-/* ⚠️ إصلاح تضارب الاسم: استخدم menuBtnFront بدل إعادة تعريف menuBtn */
+/* ⚠️ إصلاح التضارب: استخدام menuBtnFront بدلاً من إعادة تعريف menuBtn */
 const menuBtnFront  = document.querySelector('#menuBtn');
 const frontSidebar  = document.querySelector('#frontSidebar');
 const closeFrontBtn = document.querySelector('#closeFront');
@@ -1170,10 +995,10 @@ document.addEventListener('keydown', (e)=>{
   if(e.key==='Escape'){ closeFront(); closeCart(); closeSearchPanel(); }
 });
 
-// إغلاق القائمة الجانبية عند الضغط على أي رابط داخلها
 document.querySelectorAll('#frontSidebar a').forEach(function(link){
   link.addEventListener('click', function(){
-    document.getElementById('frontSidebar').classList.remove('open');
+    const fs = document.getElementById('frontSidebar');
+    if(fs) fs.classList.remove('open');
     document.body.classList.remove('sidebar-open');
     const m = document.getElementById('menuBtn');
     if(m) m.setAttribute('aria-expanded','false');
@@ -1194,12 +1019,10 @@ function renderSideCats(){
       if(state.activeCat==='sections'){
         const sec = document.getElementById('sec-'+id);
         if (sec) sec.scrollIntoView({ behavior:'smooth', block:'start' });
-        // مزامنة الشريط والسلايدر
         if(catRibbon){
           catRibbon.querySelectorAll('.pill').forEach(b=> b.classList.toggle('active', b.dataset.id === id));
           moveCatUnderline();
         }
-        // إبقاء تمييز الرابط حسب القسم الحالي (hash) في القائمة الأساسية
         function setActivePrimaryLink(){
           const links = document.querySelectorAll('.primary-links a');
           const current = (location.hash || '#home').toLowerCase();
@@ -1208,10 +1031,8 @@ function renderSideCats(){
             a.classList.toggle('active', href === current);
           });
         }
-        // شغّلها عند التحميل وتغيّر الهاش
         document.addEventListener('DOMContentLoaded', setActivePrimaryLink);
         window.addEventListener('hashchange', setActivePrimaryLink);
-
       }else{
         state.activeCat = id;
         renderItems();
@@ -1229,66 +1050,45 @@ window.addEventListener('storage', (e)=>{
   if(e.key==='menuItems'){ renderItems(); updateFabTotal(); }
 });
 
-/* 🔁 IMPORTANT: أزِل once:true لتعمل بعد كل مزامنة عامة */
+/* 🔁 مزامنة عامة */
 document.addEventListener('sb:public-synced', () => {
   try { renderSideCats(); } catch(e){}
   try { renderCats(); } catch(e){}
   try { renderItems(); } catch(e){}
 });
 
-/* تحريك المؤشر بعد تحميل كل شيء (لضمان القياسات) */
+/* تحريك المؤشر بعد التحميل */
 window.addEventListener('load', moveCatUnderline);
 
+/* ساعات العمل */
 document.addEventListener('DOMContentLoaded', setupHours);
-
 function setupHours(){
   const wrap  = document.getElementById('hoursList');
   const badge = document.getElementById('openNowBadge');
   if(!wrap || !badge) return;
 
-  // إعدادات الوقت من المصدر العام
   const OPEN_MIN  = BUSINESS.OPEN_MIN;   // 09:00
   const CLOSE_MIN = BUSINESS.CLOSE_MIN;  // 01:00 (+24h)
 
-  // ترتيب الأيام مطابق لـ getDay(): 0=الأحد … 6=السبت
   const days = ['الأحد','الاثنين','الثلاثاء','الأربعاء','الخميس','الجمعة','السبت'];
+  function nowAbsMinutes(){ const n = new Date(); return n.getDay()*1440 + n.getHours()*60 + n.getMinutes(); }
 
-  // دقائق منذ بداية الأسبوع (الأحد 00:00)
-  function nowAbsMinutes(){
-    const n = new Date();
-    return n.getDay()*1440 + n.getHours()*60 + n.getMinutes();
-  }
-
-  // هل الآن ضمن أي نافذة عمل (مع مراعاة الامتداد بعد منتصف الليل)؟
   function isOpenNow(){
-    const now = nowAbsMinutes();
-    const WEEK = 7*1440;
+    const now = nowAbsMinutes(); const WEEK = 7*1440;
     for(let d=0; d<7; d++){
-      const start = d*1440 + OPEN_MIN;      // d 09:00
-      const end   = d*1440 + CLOSE_MIN;     // d 25:00 => 01:00 لليوم التالي
-      if( (now >= start && now < end) || (end > WEEK && (now+WEEK) >= start && (now+WEEK) < end) ){
-        return true;
-      }
+      const start = d*1440 + OPEN_MIN;
+      const end   = d*1440 + CLOSE_MIN;
+      if( (now >= start && now < end) || (end > WEEK && (now+WEEK) >= start && (now+WEEK) < end) ) return true;
     }
     return false;
   }
 
-  // فورمات 12 ساعة (1–12 فقط) + ص/م
-  function fmt12(hh, mm){
-    const am = hh < 12;
-    let h = hh % 12; if(h === 0) h = 12;
-    return `${h}:${String(mm).padStart(2,'0')} ${am?'ص':'م'}`;
-  }
-  function fmtFromMinutes(mins){
-    const H = Math.floor((mins%1440)/60);
-    const M = (mins%60);
-    return fmt12(H, M);
-  }
+  function fmt12(hh, mm){ const am = hh < 12; let h = hh % 12; if(h === 0) h = 12; return `${h}:${String(mm).padStart(2,'0')} ${am?'ص':'م'}`; }
+  function fmtFromMinutes(mins){ const H = Math.floor((mins%1440)/60); const M = (mins%60); return fmt12(H, M); }
 
-  // بناء الصفوف
-  const today = new Date().getDay(); // 0..6 (0=الأحد)
-  const startStr = fmtFromMinutes(OPEN_MIN);   // 9:00 ص
-  const endStr   = fmtFromMinutes(CLOSE_MIN);  // 1:00 ص
+  const today = new Date().getDay();
+  const startStr = fmtFromMinutes(OPEN_MIN);
+  const endStr   = fmtFromMinutes(CLOSE_MIN);
 
   wrap.innerHTML = days.map((name, idx)=>{
     const isToday = idx === today;
@@ -1303,30 +1103,20 @@ function setupHours(){
     `;
   }).join('');
 
-  // شارة الحالة أعلى الكارد
-  if(isOpenNow()){
-    badge.className = 'badge small open';
-    badge.textContent = 'مفتوح الآن';
-  }else{
-    badge.className = 'badge small closed';
-    badge.textContent = 'مغلق الآن';
-  }
+  if(isOpenNow()){ badge.className = 'badge small open';  badge.textContent = 'مفتوح الآن'; }
+  else{            badge.className = 'badge small closed'; badge.textContent = 'مغلق الآن'; }
 }
-/* ==== Force English digits sitewide (٠-٩ / ۰-۹ -> 0-9) ==== */
+
+/* ==== Force English digits sitewide ==== */
 (function(){
-  const map = {
-    '٠':'0','١':'1','٢':'2','٣':'3','٤':'4','٥':'5','٦':'6','٧':'7','٨':'8','٩':'9',
-    '۰':'0','۱':'1','۲':'2','۳':'3','۴':'4','۵':'5','۶':'6','۷':'7','۸':'8','۹':'9'
-  };
+  const map = {'٠':'0','١':'1','٢':'2','٣':'3','٤':'4','٥':'5','٦':'6','٧':'7','٨':'8','٩':'9','۰':'0','۱':'1','۲':'2','۳':'3','۴':'4','۵':'5','۶':'6','۷':'7','۸':'8','۹':'9'};
   const re = /[٠-٩۰-۹]/g;
   const norm = s => s.replace(re, ch => map[ch] || ch);
 
-  // بدّل كل النصوص الظاهرة عند التحميل
   function walk(node){
     if(node.nodeType === Node.TEXT_NODE){
       const t = node.nodeValue, nt = norm(t);
-      if(t !== nt) node.nodeValue = nt;
-      return;
+      if(t !== nt) node.nodeValue = nt; return;
     }
     if(node.nodeName === 'SCRIPT' || node.nodeName === 'STYLE') return;
     for(let i=0;i<node.childNodes.length;i++) walk(node.childNodes[i]);
@@ -1334,8 +1124,6 @@ function setupHours(){
 
   document.addEventListener('DOMContentLoaded', () => {
     walk(document.body);
-
-    // راقب أي محتوى يُضاف ديناميكياً وطبّق التطبيع عليه
     const mo = new MutationObserver(muts=>{
       for(const m of muts){
         if(m.type === 'characterData'){ walk(m.target); }
@@ -1344,7 +1132,6 @@ function setupHours(){
     });
     mo.observe(document.body, { childList:true, subtree:true, characterData:true });
 
-    // طبّع إدخال المستخدم في الحقول أثناء الكتابة
     document.addEventListener('input', (e)=>{
       const el = e.target;
       if(el.tagName === 'INPUT' || el.tagName === 'TEXTAREA'){
@@ -1359,27 +1146,16 @@ function setupHours(){
   });
 })();
 
-/* ======= تقييم النجوم بتفويض نقر واحد صحيح الاتجاه ======= */
+/* ======= تقييم النجوم بتفويض نقر واحد ======= */
 document.addEventListener('click', (e)=>{
-  const starEl = e.target.closest('.stars .star');
-  if(!starEl) return;
+  const starEl = e.target.closest('.stars .star'); if(!starEl) return;
+  const wrap = starEl.closest('.stars'); const id = wrap?.dataset?.id; if(!id) return;
 
-  const wrap = starEl.closest('.stars');
-  const id = wrap?.dataset?.id;
-  if(!id) return;
+  if(userHasRatedItem(id)){ Modal.info('لقد قُمت بتقييم هذا الصنف مسبقاً.','تم التقييم'); return; }
+  if(!userHasOrderedItem(id)){ Modal.info('لا يمكنك التقييم إلا بعد طلب هذا الصنف على هذا الجهاز.','غير مسموح'); return; }
 
-  if(userHasRatedItem(id)){
-    Modal.info('لقد قُمت بتقييم هذا الصنف مسبقاً.','تم التقييم');
-    return;
-  }
-  if(!userHasOrderedItem(id)){
-    Modal.info('لا يمكنك التقييم إلا بعد طلب هذا الصنف على هذا الجهاز.','غير مسموح');
-    return;
-  }
-
-  const all = Array.from(wrap.querySelectorAll('.star')); // ترتيبها DOM = [1,2,3,4,5] (يمين→يسار)
-  const idx = all.indexOf(starEl);                        // 0→نجمة واحدة، 4→5 نجوم
+  const all = Array.from(wrap.querySelectorAll('.star')); // ترتيبها DOM = [1,2,3,4,5]
+  const idx = all.indexOf(starEl);
   const stars = idx + 1;
-
   rateItem(id, stars);
 });
