@@ -12,6 +12,12 @@
     <link rel="preload" href="style.css" as="style">
     <link rel="stylesheet" href="style.css">
 
+    <!-- Inline safety styles to ثبّت الأبعاد وتمنع CLS حتى لو لم تُحدث style.css بعد -->
+    <style>
+      .items-grid { display: grid; gap: 1rem; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); }
+      .menu-item picture, .menu-item img { display:block; width:100%; aspect-ratio: 4/3; object-fit: cover; height:auto; }
+    </style>
+
     <!-- Icons / CDN Perf -->
     <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🍽️</text></svg>">
     <link rel="dns-prefetch" href="//cdnjs.cloudflare.com">
@@ -20,6 +26,10 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
 </head>
 <body>
+    <!-- ملاحظة: تم تحويل وسوم <img> إلى <picture> مع مصادر AVIF/WebP ومقاسات 320/640/960.
+         يُفترض إنشاء الملفات المشتقة بنفس الأسماء (‎-320/-640/-960) للصيغ avif/webp.
+         إن لم تكن متوفرة بعد، سيسقط المتصفح إلى صورة JPG/PNG الأصلية في وسم <img>. -->
+
     <!-- Sidebar -->
     <div id="sidebar" class="sidebar">
         <div class="sidebar-header">
@@ -247,25 +257,41 @@
             <h2>🍳 الفطور الصباحي</h2>
             <div class="items-grid">
                 <div class="menu-item">
-                    <img loading="lazy" decoding="async" src="images/breakfast2.jpg" alt="فطور عربي تقليدي">
+                    <picture>
+                      <source type="image/avif" srcset="images/breakfast2-320.avif 320w, images/breakfast2-640.avif 640w, images/breakfast2-960.avif 960w" sizes="(max-width:640px) 50vw, (max-width:1024px) 33vw, 25vw">
+                      <source type="image/webp" srcset="images/breakfast2-320.webp 320w, images/breakfast2-640.webp 640w, images/breakfast2-960.webp 960w" sizes="(max-width:640px) 50vw, (max-width:1024px) 33vw, 25vw">
+                      <img loading="eager" fetchpriority="high" decoding="async" src="images/breakfast2.jpg" alt="فطور عربي تقليدي">
+                    </picture>
                     <h3>فطور عربي تقليدي</h3>
                     <p>فطور شامل يضم الحمص والفول والجبن والزيتون والخضار الطازجة مع الخبز العربي</p>
                     <span class="price">7 $</span>
                 </div>
                 <div class="menu-item">
-                    <img loading="lazy" decoding="async" src="images/Olives_Plate.png" alt="فطور صحي">
+                    <picture>
+                      <source type="image/avif" srcset="images/Olives_Plate-320.avif 320w, images/Olives_Plate-640.avif 640w, images/Olives_Plate-960.avif 960w" sizes="(max-width:640px) 50vw, (max-width:1024px) 33vw, 25vw">
+                      <source type="image/webp" srcset="images/Olives_Plate-320.webp 320w, images/Olives_Plate-640.webp 640w, images/Olives_Plate-960.webp 960w" sizes="(max-width:640px) 50vw, (max-width:1024px) 33vw, 25vw">
+                      <img loading="lazy" decoding="async" src="images/Olives_Plate.png" alt="فطور صحي - زيتون">
+                    </picture>
                     <h3>  زيتون اخضر /اسود </h3>
                     <p>وجبة فطور صحية       </p>
                     <span class="price">2 $</span>
                 </div>
                 <div class="menu-item">
-                    <img loading="lazy" decoding="async" src="images/Falafel.jpg" alt="فطور شامي">
+                    <picture>
+                      <source type="image/avif" srcset="images/Falafel-320.avif 320w, images/Falafel-640.avif 640w, images/Falafel-960.avif 960w" sizes="(max-width:640px) 50vw, (max-width:1024px) 33vw, 25vw">
+                      <source type="image/webp" srcset="images/Falafel-320.webp 320w, images/Falafel-640.webp 640w, images/Falafel-960.webp 960w" sizes="(max-width:640px) 50vw, (max-width:1024px) 33vw, 25vw">
+                      <img loading="lazy" decoding="async" src="images/Falafel.jpg" alt="فطور شامي - فلافل">
+                    </picture>
                     <h3>فلافل   </h3>
                     <p>وجبة فطور صحية       </p>
                     <span class="price">3 $</span>
                 </div>
                 <div class="menu-item">
-                    <img loading="lazy" decoding="async" src="images/Hummus_with_Tahini.jpg" alt="فول مدمس">
+                    <picture>
+                      <source type="image/avif" srcset="images/Hummus_with_Tahini-320.avif 320w, images/Hummus_with_Tahini-640.avif 640w, images/Hummus_with_Tahini-960.avif 960w" sizes="(max-width:640px) 50vw, (max-width:1024px) 33vw, 25vw">
+                      <source type="image/webp" srcset="images/Hummus_with_Tahini-320.webp 320w, images/Hummus_with_Tahini-640.webp 640w, images/Hummus_with_Tahini-960.webp 960w" sizes="(max-width:640px) 50vw, (max-width:1024px) 33vw, 25vw">
+                      <img loading="lazy" decoding="async" src="images/Hummus_with_Tahini.jpg" alt="حمص مطحون">
+                    </picture>
                     <h3>  حمص مطحون</h3>
                     <p>وجبة فطور صحية       </p>
                     <span class="price">1.5 $</span>
@@ -278,19 +304,31 @@
             <h2>🔥 المقبلات </h2>
             <div class="items-grid">
                 <div class="menu-item">
-                    <img loading="lazy" decoding="async" src="images/Eggplant_Mutabbal.jpg" alt="متبل  ">
+                    <picture>
+                      <source type="image/avif" srcset="images/Eggplant_Mutabbal-320.avif 320w, images/Eggplant_Mutabbal-640.avif 640w, images/Eggplant_Mutabbal-960.avif 960w" sizes="(max-width:640px) 50vw, (max-width:1024px) 33vw, 25vw">
+                      <source type="image/webp" srcset="images/Eggplant_Mutabbal-320.webp 320w, images/Eggplant_Mutabbal-640.webp 640w, images/Eggplant_Mutabbal-960.webp 960w" sizes="(max-width:640px) 50vw, (max-width:1024px) 33vw, 25vw">
+                      <img loading="lazy" decoding="async" src="images/Eggplant_Mutabbal.jpg" alt="متبل باذنجان">
+                    </picture>
                     <h3>متبل باذنجان   </h3>
                     <p>وجبة         </p>
                     <span class="price">1 $</span>
                 </div>
                 <div class="menu-item">
-                    <img loading="lazy" decoding="async" src="images/Hummus_with_Tahini.jpg" alt="حمص مطحون">
+                    <picture>
+                      <source type="image/avif" srcset="images/Hummus_with_Tahini-320.avif 320w, images/Hummus_with_Tahini-640.avif 640w, images/Hummus_with_Tahini-960.avif 960w" sizes="(max-width:640px) 50vw, (max-width:1024px) 33vw, 25vw">
+                      <source type="image/webp" srcset="images/Hummus_with_Tahini-320.webp 320w, images/Hummus_with_Tahini-640.webp 640w, images/Hummus_with_Tahini-960.webp 960w" sizes="(max-width:640px) 50vw, (max-width:1024px) 33vw, 25vw">
+                      <img loading="lazy" decoding="async" src="images/Hummus_with_Tahini.jpg" alt="حمص مطحون">
+                    </picture>
                     <h3>حمص مطحون  </h3>
                     <p>وجبة         </p>
                     <span class="price">1.5 $</span>
                 </div>
                 <div class="menu-item">
-                    <img loading="lazy" decoding="async" src="images/soup1.jpg" alt="شوربة ">
+                    <picture>
+                      <source type="image/avif" srcset="images/soup1-320.avif 320w, images/soup1-640.avif 640w, images/soup1-960.avif 960w" sizes="(max-width:640px) 50vw, (max-width:1024px) 33vw, 25vw">
+                      <source type="image/webp" srcset="images/soup1-320.webp 320w, images/soup1-640.webp 640w, images/soup1-960.webp 960w" sizes="(max-width:640px) 50vw, (max-width:1024px) 33vw, 25vw">
+                      <img loading="lazy" decoding="async" src="images/soup1.jpg" alt="شوربة ">
+                    </picture>
                     <h3>شوربة </h3>
                     <p>وجبة         </p>
                     <span class="price">1 $</span>
@@ -303,25 +341,41 @@
             <h2>🥗 السلطات</h2>
             <div class="items-grid">
                 <div class="menu-item">
-                    <img loading="lazy" decoding="async" src="images/salad1.jpg" alt="سلطة عربية">
+                    <picture>
+                      <source type="image/avif" srcset="images/salad1-320.avif 320w, images/salad1-640.avif 640w, images/salad1-960.avif 960w" sizes="(max-width:640px) 50vw, (max-width:1024px) 33vw, 25vw">
+                      <source type="image/webp" srcset="images/salad1-320.webp 320w, images/salad1-640.webp 640w, images/salad1-960.webp 960w" sizes="(max-width:640px) 50vw, (max-width:1024px) 33vw, 25vw">
+                      <img loading="lazy" decoding="async" src="images/salad1.jpg" alt="سلطة عربية">
+                    </picture>
                     <h3>سلطة عربية مشكلة</h3>
                     <p>خليط من الخس والطماطم والخيار والبصل مع زيت الزيتون والليمون</p>
                     <span class="price">18 $</span>
                 </div>
                 <div class="menu-item">
-                    <img loading="lazy" decoding="async" src="images/salad2.jpg" alt="تبولة">
+                    <picture>
+                      <source type="image/avif" srcset="images/salad2-320.avif 320w, images/salad2-640.avif 640w, images/salad2-960.avif 960w" sizes="(max-width:640px) 50vw, (max-width:1024px) 33vw, 25vw">
+                      <source type="image/webp" srcset="images/salad2-320.webp 320w, images/salad2-640.webp 640w, images/salad2-960.webp 960w" sizes="(max-width:640px) 50vw, (max-width:1024px) 33vw, 25vw">
+                      <img loading="lazy" decoding="async" src="images/salad2.jpg" alt="تبولة">
+                    </picture>
                     <h3>تبولة لبنانية</h3>
                     <p>سلطة البقدونس التقليدية مع الطماطم والبرغل والنعناع والليمون</p>
                     <span class="price">22 $</span>
                 </div>
                 <div class="menu-item">
-                    <img loading="lazy" decoding="async" src="images/Fattoush_Salad.jpg" alt="فتوش">
+                    <picture>
+                      <source type="image/avif" srcset="images/Fattoush_Salad-320.avif 320w, images/Fattoush_Salad-640.avif 640w, images/Fattoush_Salad-960.avif 960w" sizes="(max-width:640px) 50vw, (max-width:1024px) 33vw, 25vw">
+                      <source type="image/webp" srcset="images/Fattoush_Salad-320.webp 320w, images/Fattoush_Salad-640.webp 640w, images/Fattoush_Salad-960.webp 960w" sizes="(max-width:640px) 50vw, (max-width:1024px) 33vw, 25vw">
+                      <img loading="lazy" decoding="async" src="images/Fattoush_Salad.jpg" alt="فتوش">
+                    </picture>
                     <h3>فتوش شامي</h3>
                     <p>سلطة الخضار المشكلة مع قطع الخبز المحمص والسماق ودبس الرمان</p>
                     <span class="price">20 $</span>
                 </div>
                 <div class="menu-item">
-                    <img loading="lazy" decoding="async" src="images/Caesar_Salad.jpg" alt="سلطة يونانية">
+                    <picture>
+                      <source type="image/avif" srcset="images/Caesar_Salad-320.avif 320w, images/Caesar_Salad-640.avif 640w, images/Caesar_Salad-960.avif 960w" sizes="(max-width:640px) 50vw, (max-width:1024px) 33vw, 25vw">
+                      <source type="image/webp" srcset="images/Caesar_Salad-320.webp 320w, images/Caesar_Salad-640.webp 640w, images/Caesar_Salad-960.webp 960w" sizes="(max-width:640px) 50vw, (max-width:1024px) 33vw, 25vw">
+                      <img loading="lazy" decoding="async" src="images/Caesar_Salad.jpg" alt="سلطة يونانية">
+                    </picture>
                     <h3>سلطة يونانية</h3>
                     <p>خضار طازجة مع جبن الفيتا والزيتون الأسود وزيت الزيتون</p>
                     <span class="price">25 $</span>
@@ -334,31 +388,51 @@
             <h2>🍛 الأطباق الشرقية الأصيلة</h2>
             <div class="items-grid">
                 <div class="menu-item">
-                    <img loading="lazy" decoding="async" src="images/Lamb_Mandi.png" alt="مندي لحم">
+                    <picture>
+                      <source type="image/avif" srcset="images/Lamb_Mandi-320.avif 320w, images/Lamb_Mandi-640.avif 640w, images/Lamb_Mandi-960.avif 960w" sizes="(max-width:640px) 50vw, (max-width:1024px) 33vw, 25vw">
+                      <source type="image/webp" srcset="images/Lamb_Mandi-320.webp 320w, images/Lamb_Mandi-640.webp 640w, images/Lamb_Mandi-960.webp 960w" sizes="(max-width:640px) 50vw, (max-width:1024px) 33vw, 25vw">
+                      <img loading="lazy" decoding="async" src="images/Lamb_Mandi.png" alt="مندي لحم">
+                    </picture>
                     <h3>مندي اللحم الأصيل</h3>
                     <p>لحم ضأن طري مطبوخ على الطريقة اليمنية مع الأرز البسمتي والبهارات</p>
                     <span class="price">14 $</span>
                 </div>
                 <div class="menu-item">
-                    <img loading="lazy" decoding="async" src="images/Chicken_Kabsa.png" alt="كبسة دجاج">
+                    <picture>
+                      <source type="image/avif" srcset="images/Chicken_Kabsa-320.avif 320w, images/Chicken_Kabsa-640.avif 640w, images/Chicken_Kabsa-960.avif 960w" sizes="(max-width:640px) 50vw, (max-width:1024px) 33vw, 25vw">
+                      <source type="image/webp" srcset="images/Chicken_Kabsa-320.webp 320w, images/Chicken_Kabsa-640.webp 640w, images/Chicken_Kabsa-960.webp 960w" sizes="(max-width:640px) 50vw, (max-width:1024px) 33vw, 25vw">
+                      <img loading="lazy" decoding="async" src="images/Chicken_Kabsa.png" alt="كبسة دجاج">
+                    </picture>
                     <h3>كبسة الدجاج الملكية</h3>
                     <p>دجاج مشوي مع الأرز المبهر والخضار، على الطريقة السعودية الأصيلة</p>
                     <span class="price">9 $</span>
                 </div>
                 <div class="menu-item">
-                    <img loading="lazy" decoding="async" src="images/Mansaf.png" alt="منسف">
+                    <picture>
+                      <source type="image/avif" srcset="images/Mansaf-320.avif 320w, images/Mansaf-640.avif 640w, images/Mansaf-960.avif 960w" sizes="(max-width:640px) 50vw, (max-width:1024px) 33vw, 25vw">
+                      <source type="image/webp" srcset="images/Mansaf-320.webp 320w, images/Mansaf-640.webp 640w, images/Mansaf-960.webp 960w" sizes="(max-width:640px) 50vw, (max-width:1024px) 33vw, 25vw">
+                      <img loading="lazy" decoding="async" src="images/Mansaf.png" alt="منسف">
+                    </picture>
                     <h3>منسف أردني أصيل</h3>
                     <p>لحم ضأن مطبوخ باللبن الجميد مع الأرز، يُقدم على الطريقة الأردنية</p>
                     <span class="price">16 $</span>
                 </div>
                 <div class="menu-item">
-                    <img loading="lazy" decoding="async" src="images/Chicken_Biryani.png" alt="برياني">
+                    <picture>
+                      <source type="image/avif" srcset="images/Chicken_Biryani-320.avif 320w, images/Chicken_Biryani-640.avif 640w, images/Chicken_Biryani-960.avif 960w" sizes="(max-width:640px) 50vw, (max-width:1024px) 33vw, 25vw">
+                      <source type="image/webp" srcset="images/Chicken_Biryani-320.webp 320w, images/Chicken_Biryani-640.webp 640w, images/Chicken_Biryani-960.webp 960w" sizes="(max-width:640px) 50vw, (max-width:1024px) 33vw, 25vw">
+                      <img loading="lazy" decoding="async" src="images/Chicken_Biryani.png" alt="برياني">
+                    </picture>
                     <h3>برياني بالدجاج</h3>
                     <p>  طازجة مع قطع الدجاج والأرز الأبيض</p>
                     <span class="price">9.5 $</span>
                 </div>
                 <div class="menu-item">
-                    <img loading="lazy" decoding="async" src="images/Stuffed_Chicken_with_Rice.jpg" alt="دجاج محشي  ">
+                    <picture>
+                      <source type="image/avif" srcset="images/Stuffed_Chicken_with_Rice-320.avif 320w, images/Stuffed_Chicken_with_Rice-640.avif 640w, images/Stuffed_Chicken_with_Rice-960.avif 960w" sizes="(max-width:640px) 50vw, (max-width:1024px) 33vw, 25vw">
+                      <source type="image/webp" srcset="images/Stuffed_Chicken_with_Rice-320.webp 320w, images/Stuffed_Chicken_with_Rice-640.webp 640w, images/Stuffed_Chicken_with_Rice-960.webp 960w" sizes="(max-width:640px) 50vw, (max-width:1024px) 33vw, 25vw">
+                      <img loading="lazy" decoding="async" src="images/Stuffed_Chicken_with_Rice.jpg" alt="دجاج محشي ">
+                    </picture>
                     <h3>دجاج  محشي</h3>
                     <p>قطع الخبز  مع  واللبن  والصنوبر</p>
                     <span class="price">8 $</span>
@@ -371,31 +445,51 @@
             <h2>🍝 الأطباق الغربية </h2>
             <div class="items-grid">
                 <div class="menu-item">
-                    <img loading="lazy" decoding="async" src="images/hot1.jpg" alt=" دجاج مقلي">
+                    <picture>
+                      <source type="image/avif" srcset="images/hot1-320.avif 320w, images/hot1-640.avif 640w, images/hot1-960.avif 960w" sizes="(max-width:640px) 50vw, (max-width:1024px) 33vw, 25vw">
+                      <source type="image/webp" srcset="images/hot1-320.webp 320w, images/hot1-640.webp 640w, images/hot1-960.webp 960w" sizes="(max-width:640px) 50vw, (max-width:1024px) 33vw, 25vw">
+                      <img loading="lazy" decoding="async" src="images/hot1.jpg" alt="دجاج مقلي">
+                    </picture>
                     <h3>دجاج مقلي سبايسي   </h3>
                     <p>سبايسي   حسب الطلب مع البطاطس والخضار </p>
                     <span class="price">7 $</span>
                 </div>
                 <div class="menu-item">
-                    <img loading="lazy" decoding="async" src="images/Chicken_Burger.png" alt="برغر ">
+                    <picture>
+                      <source type="image/avif" srcset="images/Chicken_Burger-320.avif 320w, images/Chicken_Burger-640.avif 640w, images/Chicken_Burger-960.avif 960w" sizes="(max-width:640px) 50vw, (max-width:1024px) 33vw, 25vw">
+                      <source type="image/webp" srcset="images/Chicken_Burger-320.webp 320w, images/Chicken_Burger-640.webp 640w, images/Chicken_Burger-960.webp 960w" sizes="(max-width:640px) 50vw, (max-width:1024px) 33vw, 25vw">
+                      <img loading="lazy" decoding="async" src="images/Chicken_Burger.png" alt="برغر دجاج">
+                    </picture>
                     <h3>برجر دجاج   </h3>
                     <p>برجر  طازج مع الجبن والخضار والبطاطس المقلية</p>
                     <span class="price">8 $</span>
                 </div>
                 <div class="menu-item">
-                    <img loading="lazy" decoding="async" src="images/Club_Sandwich.png" alt="سابا ">
+                    <picture>
+                      <source type="image/avif" srcset="images/Club_Sandwich-320.avif 320w, images/Club_Sandwich-640.avif 640w, images/Club_Sandwich-960.avif 960w" sizes="(max-width:640px) 50vw, (max-width:1024px) 33vw, 25vw">
+                      <source type="image/webp" srcset="images/Club_Sandwich-320.webp 320w, images/Club_Sandwich-640.webp 640w, images/Club_Sandwich-960.webp 960w" sizes="(max-width:640px) 50vw, (max-width:1024px) 33vw, 25vw">
+                      <img loading="lazy" decoding="async" src="images/Club_Sandwich.png" alt="كلوب ساندويتش">
+                    </picture>
                     <h3>سابايا   </h3>
                     <p>سابيا  طازج مع الجبن والخضار والبطاطس المقلية</p>
                     <span class="price">4 $</span>
                 </div>
                 <div class="menu-item">
-                    <img loading="lazy" decoding="async" src="images/Beef_Burger.jpg" alt="برغر ">
+                    <picture>
+                      <source type="image/avif" srcset="images/Beef_Burger-320.avif 320w, images/Beef_Burger-640.avif 640w, images/Beef_Burger-960.avif 960w" sizes="(max-width:640px) 50vw, (max-width:1024px) 33vw, 25vw">
+                      <source type="image/webp" srcset="images/Beef_Burger-320.webp 320w, images/Beef_Burger-640.webp 640w, images/Beef_Burger-960.webp 960w" sizes="(max-width:640px) 50vw, (max-width:1024px) 33vw, 25vw">
+                      <img loading="lazy" decoding="async" src="images/Beef_Burger.jpg" alt="برغر لحم">
+                    </picture>
                     <h3>برجر اللحم الفاخر</h3>
                     <p>برجر  طازج مع الجبن والخضار والبطاطس المقلية</p>
                     <span class="price">11 $</span>
                 </div>
                 <div class="menu-item">
-                    <img loading="lazy" decoding="async" src="images/Double_Cheeseburger.png" alt="برغر ">
+                    <picture>
+                      <source type="image/avif" srcset="images/Double_Cheeseburger-320.avif 320w, images/Double_Cheeseburger-640.avif 640w, images/Double_Cheeseburger-960.avif 960w" sizes="(max-width:640px) 50vw, (max-width:1024px) 33vw, 25vw">
+                      <source type="image/webp" srcset="images/Double_Cheeseburger-320.webp 320w, images/Double_Cheeseburger-640.webp 640w, images/Double_Cheeseburger-960.webp 960w" sizes="(max-width:640px) 50vw, (max-width:1024px) 33vw, 25vw">
+                      <img loading="lazy" decoding="async" src="images/Double_Cheeseburger.png" alt="برغر الجبن المزدوج">
+                    </picture>
                     <h3>برجر اللحم مع الجبن </h3>
                     <p>برجر  طازج مع الجبن والخضار والبطاطس المقلية</p>
                     <span class="price">12 $</span>
@@ -408,37 +502,61 @@
             <h2>🔥 المشاوي</h2>
             <div class="items-grid">
                 <div class="menu-item">
-                    <img loading="lazy" decoding="async" src="images/Mixed_Grill.jpg" alt=" مشاوي">
+                    <picture>
+                      <source type="image/avif" srcset="images/Mixed_Grill-320.avif 320w, images/Mixed_Grill-640.avif 640w, images/Mixed_Grill-960.avif 960w" sizes="(max-width:640px) 50vw, (max-width:1024px) 33vw, 25vw">
+                      <source type="image/webp" srcset="images/Mixed_Grill-320.webp 320w, images/Mixed_Grill-640.webp 640w, images/Mixed_Grill-960.webp 960w" sizes="(max-width:640px) 50vw, (max-width:1024px) 33vw, 25vw">
+                      <img loading="lazy" decoding="async" src="images/Mixed_Grill.jpg" alt="مشكل المشاوي">
+                    </picture>
                     <h3>مشكل المشاوي الفاخر</h3>
                     <p>تشكيلة من الكباب والكفتة والشيش طاووق مع الأرز والسلطة</p>
                     <span class="price">17 $</span>
                 </div>
                 <div class="menu-item">
-                    <img loading="lazy" decoding="async" src="images/grill2.jpg" alt=" مشاوي">
+                    <picture>
+                      <source type="image/avif" srcset="images/grill2-320.avif 320w, images/grill2-640.avif 640w, images/grill2-960.avif 960w" sizes="(max-width:640px) 50vw, (max-width:1024px) 33vw, 25vw">
+                      <source type="image/webp" srcset="images/grill2-320.webp 320w, images/grill2-640.webp 640w, images/grill2-960.webp 960w" sizes="(max-width:640px) 50vw, (max-width:1024px) 33vw, 25vw">
+                      <img loading="lazy" decoding="async" src="images/grill2.jpg" alt="كباب اللحم">
+                    </picture>
                     <h3>كباب اللحم المتبل</h3>
                     <p>أسياخ كباب لحم طرية متبلة بالبهارات الشرقية ومشوية على الفحم</p>
                     <span class="price">14 $</span>
                 </div>
                 <div class="menu-item">
-                    <img loading="lazy" decoding="async" src="images/Shish_Tawook.png" alt=" مشاوي">
+                    <picture>
+                      <source type="image/avif" srcset="images/Shish_Tawook-320.avif 320w, images/Shish_Tawook-640.avif 640w, images/Shish_Tawook-960.avif 960w" sizes="(max-width:640px) 50vw, (max-width:1024px) 33vw, 25vw">
+                      <source type="image/webp" srcset="images/Shish_Tawook-320.webp 320w, images/Shish_Tawook-640.webp 640w, images/Shish_Tawook-960.webp 960w" sizes="(max-width:640px) 50vw, (max-width:1024px) 33vw, 25vw">
+                      <img loading="lazy" decoding="async" src="images/Shish_Tawook.png" alt="شيش طاووق">
+                    </picture>
                     <h3>شيش طاووق مشوي</h3>
                     <p>قطع دجاج طرية متبلة بالثوم والليمون ومشوية على الفحم</p>
                     <span class="price">11 $</span>
                 </div>
                 <div class="menu-item">
-                    <img loading="lazy" decoding="async" src="images/meat1.jpg" alt=" مشاوي">
+                    <picture>
+                      <source type="image/avif" srcset="images/meat1-320.avif 320w, images/meat1-640.avif 640w, images/meat1-960.avif 960w" sizes="(max-width:640px) 50vw, (max-width:1024px) 33vw, 25vw">
+                      <source type="image/webp" srcset="images/meat1-320.webp 320w, images/meat1-640.webp 640w, images/meat1-960.webp 960w" sizes="(max-width:640px) 50vw, (max-width:1024px) 33vw, 25vw">
+                      <img loading="lazy" decoding="async" src="images/meat1.jpg" alt="كفتة مشوية">
+                    </picture>
                     <h3>كفتة مشوية بالبقدونس</h3>
                     <p>كفتة لحم طازجة مخلوطة بالبقدونس والبصل ومشوية على الفحم</p>
                     <span class="price">18 $</span>
                 </div>
                 <div class="menu-item">
-                    <img loading="lazy" decoding="async" src="images/Lamb_Chops.png" alt=" مشاوي">
+                    <picture>
+                      <source type="image/avif" srcset="images/Lamb_Chops-320.avif 320w, images/Lamb_Chops-640.avif 640w, images/Lamb_Chops-960.avif 960w" sizes="(max-width:640px) 50vw, (max-width:1024px) 33vw, 25vw">
+                      <source type="image/webp" srcset="images/Lamb_Chops-320.webp 320w, images/Lamb_Chops-640.webp 640w, images/Lamb_Chops-960.webp 960w" sizes="(max-width:640px) 50vw, (max-width:1024px) 33vw, 25vw">
+                      <img loading="lazy" decoding="async" src="images/Lamb_Chops.png" alt="ضلوع الغنم">
+                    </picture>
                     <h3>ضلوع الغنم المشوية</h3>
                     <p>ضلوع غنم طرية متبلة ومشوية ببطء على الفحم حتى النضج</p>
                     <span class="price">16 $</span>
                 </div>
                 <div class="menu-item">
-                    <img loading="lazy" decoding="async" src="images/grill2.jpg" alt=" مشاوي">
+                    <picture>
+                      <source type="image/avif" srcset="images/grill2-320.avif 320w, images/grill2-640.avif 640w, images/grill2-960.avif 960w" sizes="(max-width:640px) 50vw, (max-width:1024px) 33vw, 25vw">
+                      <source type="image/webp" srcset="images/grill2-320.webp 320w, images/grill2-640.webp 640w, images/grill2-960.webp 960w" sizes="(max-width:640px) 50vw, (max-width:1024px) 33vw, 25vw">
+                      <img loading="lazy" decoding="async" src="images/grill2.jpg" alt="نصف دجاج مشوي">
+                    </picture>
                     <h3>نصف دجاج مشوي</h3>
                     <p>نصف دجاج طازج متبل ومشوي على الفحم مع الثوم والليمون</p>
                     <span class="price">12 $</span>
@@ -451,25 +569,41 @@
             <h2>🐟 المأكولات البحرية</h2>
             <div class="items-grid">
                 <div class="menu-item">
-                    <img loading="lazy" decoding="async" src="images/Grilled_Salmon.png" alt="سمك مشوي">
+                    <picture>
+                      <source type="image/avif" srcset="images/Grilled_Salmon-320.avif 320w, images/Grilled_Salmon-640.avif 640w, images/Grilled_Salmon-960.avif 960w" sizes="(max-width:640px) 50vw, (max-width:1024px) 33vw, 25vw">
+                      <source type="image/webp" srcset="images/Grilled_Salmon-320.webp 320w, images/Grilled_Salmon-640.webp 640w, images/Grilled_Salmon-960.webp 960w" sizes="(max-width:640px) 50vw, (max-width:1024px) 33vw, 25vw">
+                      <img loading="lazy" decoding="async" src="images/Grilled_Salmon.png" alt="سمك هامور مشوي">
+                    </picture>
                     <h3>سمك هامور مشوي</h3>
                     <p>سمك هامور طازج مشوي مع الخضار والأرز الأبيض وصوص الليمون</p>
                     <span class="price">85 $</span>
                 </div>
                 <div class="menu-item">
-                    <img loading="lazy" decoding="async" src="images/Grilled_Fish.png" alt="سلمون مشوي">
+                    <picture>
+                      <source type="image/avif" srcset="images/Grilled_Fish-320.avif 320w, images/Grilled_Fish-640.avif 640w, images/Grilled_Fish-960.avif 960w" sizes="(max-width:640px) 50vw, (max-width:1024px) 33vw, 25vw">
+                      <source type="image/webp" srcset="images/Grilled_Fish-320.webp 320w, images/Grilled_Fish-640.webp 640w, images/Grilled_Fish-960.webp 960w" sizes="(max-width:640px) 50vw, (max-width:1024px) 33vw, 25vw">
+                      <img loading="lazy" decoding="async" src="images/Grilled_Fish.png" alt="سلمون مشوي">
+                    </picture>
                     <h3>سلمون مشوي بالأعشاب</h3>
                     <p>فيليه سلمون نرويجي مشوي مع الأعشاب الطازجة وصوص الكابر</p>
                     <span class="price">95 $</span>
                 </div>
                 <div class="menu-item">
-                    <img loading="lazy" decoding="async" src="images/seafood1.jpg" alt="سمك فيليه">
+                    <picture>
+                      <source type="image/avif" srcset="images/seafood1-320.avif 320w, images/seafood1-640.avif 640w, images/seafood1-960.avif 960w" sizes="(max-width:640px) 50vw, (max-width:1024px) 33vw, 25vw">
+                      <source type="image/webp" srcset="images/seafood1-320.webp 320w, images/seafood1-640.webp 640w, images/seafood1-960.webp 960w" sizes="(max-width:640px) 50vw, (max-width:1024px) 33vw, 25vw">
+                      <img loading="lazy" decoding="async" src="images/seafood1.jpg" alt="فيليه السمك المقلي">
+                    </picture>
                     <h3>فيليه السمك المقلي</h3>
                     <p>فيليه سمك طازج مقلي مع البقسماط والبطاطس المقلية</p>
                     <span class="price">70 $</span>
                 </div>
                 <div class="menu-item">
-                    <img loading="lazy" decoding="async" src="images/seafood2.jpg" alt="مأكولات بحرية">
+                    <picture>
+                      <source type="image/avif" srcset="images/seafood2-320.avif 320w, images/seafood2-640.avif 640w, images/seafood2-960.avif 960w" sizes="(max-width:640px) 50vw, (max-width:1024px) 33vw, 25vw">
+                      <source type="image/webp" srcset="images/seafood2-320.webp 320w, images/seafood2-640.webp 640w, images/seafood2-960.webp 960w" sizes="(max-width:640px) 50vw, (max-width:1024px) 33vw, 25vw">
+                      <img loading="lazy" decoding="async" src="images/seafood2.jpg" alt="طبق المأكولات البحرية">
+                    </picture>
                     <h3>طبق المأكولات البحرية</h3>
                     <p>تشكيلة من الجمبري والحبار والسمك مع الأرز والخضار</p>
                     <span class="price">110 $</span>
@@ -482,19 +616,31 @@
             <h2>🥪 السندويتشات</h2>
             <div class="items-grid">
                 <div class="menu-item">
-                    <img loading="lazy" decoding="async" src="images/sandwich1.jpg" alt="شاورما لحم">
+                    <picture>
+                      <source type="image/avif" srcset="images/sandwich1-320.avif 320w, images/sandwich1-640.avif 640w, images/sandwich1-960.avif 960w" sizes="(max-width:640px) 50vw, (max-width:1024px) 33vw, 25vw">
+                      <source type="image/webp" srcset="images/sandwich1-320.webp 320w, images/sandwich1-640.webp 640w, images/sandwich1-960.webp 960w" sizes="(max-width:640px) 50vw, (max-width:1024px) 33vw, 25vw">
+                      <img loading="lazy" decoding="async" src="images/sandwich1.jpg" alt="شاورما لحم">
+                    </picture>
                     <h3>شاورما اللحم</h3>
                     <p>شاورما لحم طازجة مع الخضار والطحينة والثوم في خبز عربي</p>
                     <span class="price">7 $</span>
                 </div>
                 <div class="menu-item">
-                    <img loading="lazy" decoding="async" src="images/Chicken_Shawarma.png" alt="شاورما دجاج">
+                    <picture>
+                      <source type="image/avif" srcset="images/Chicken_Shawarma-320.avif 320w, images/Chicken_Shawarma-640.avif 640w, images/Chicken_Shawarma-960.avif 960w" sizes="(max-width:640px) 50vw, (max-width:1024px) 33vw, 25vw">
+                      <source type="image/webp" srcset="images/Chicken_Shawarma-320.webp 320w, images/Chicken_Shawarma-640.webp 640w, images/Chicken_Shawarma-960.webp 960w" sizes="(max-width:640px) 50vw, (max-width:1024px) 33vw, 25vw">
+                      <img loading="lazy" decoding="async" src="images/Chicken_Shawarma.png" alt="شاورما دجاج">
+                    </picture>
                     <h3>شاورما الدجاج</h3>
                     <p>شاورما دجاج مشوية مع الخضار والثوم والمايونيز في خبز طازج</p>
                     <span class="price">5 $</span>
                 </div>
                 <div class="menu-item">
-                    <img loading="lazy" decoding="async" src="images/Club_Sandwich.jpg" alt="تونة">
+                    <picture>
+                      <source type="image/avif" srcset="images/Club_Sandwich-320.avif 320w, images/Club_Sandwich-640.avif 640w, images/Club_Sandwich-960.avif 960w" sizes="(max-width:640px) 50vw, (max-width:1024px) 33vw, 25vw">
+                      <source type="image/webp" srcset="images/Club_Sandwich-320.webp 320w, images/Club_Sandwich-640.webp 640w, images/Club_Sandwich-960.webp 960w" sizes="(max-width:640px) 50vw, (max-width:1024px) 33vw, 25vw">
+                      <img loading="lazy" decoding="async" src="images/Club_Sandwich.jpg" alt="سندويتش التونة">
+                    </picture>
                     <h3>سندويتش التونة</h3>
                     <p>تونة طازجة مع الخضار والمايونيز في خبز التوست المحمص</p>
                     <span class="price">20 $</span>
@@ -507,49 +653,81 @@
             <h2>🥞 الحلويات</h2>
             <div class="items-grid">
                 <div class="menu-item">
-                    <img loading="lazy" decoding="async" src="images/crepe1.jpg" alt="كريب نوتيلا">
+                    <picture>
+                      <source type="image/avif" srcset="images/crepe1-320.avif 320w, images/crepe1-640.avif 640w, images/crepe1-960.avif 960w" sizes="(max-width:640px) 50vw, (max-width:1024px) 33vw, 25vw">
+                      <source type="image/webp" srcset="images/crepe1-320.webp 320w, images/crepe1-640.webp 640w, images/crepe1-960.webp 960w" sizes="(max-width:640px) 50vw, (max-width:1024px) 33vw, 25vw">
+                      <img loading="lazy" decoding="async" src="images/crepe1.jpg" alt="كريب نوتيلا">
+                    </picture>
                     <h3>كريب النوتيلا والفراولة</h3>
                     <p>كريب رقيق محشو بالنوتيلا وقطع الفراولة الطازجة مع السكر البودرة</p>
                     <span class="price">3 $</span>
                 </div>
                 <div class="menu-item">
-                    <img loading="lazy" decoding="async" src="images/western3.jpg" alt="كريب موز">
+                    <picture>
+                      <source type="image/avif" srcset="images/western3-320.avif 320w, images/western3-640.avif 640w, images/western3-960.avif 960w" sizes="(max-width:640px) 50vw, (max-width:1024px) 33vw, 25vw">
+                      <source type="image/webp" srcset="images/western3-320.webp 320w, images/western3-640.webp 640w, images/western3-960.webp 960w" sizes="(max-width:640px) 50vw, (max-width:1024px) 33vw, 25vw">
+                      <img loading="lazy" decoding="async" src="images/western3.jpg" alt="كريب موز">
+                    </picture>
                     <h3>كريب الموز والعسل</h3>
                     <p>كريب محشو بشرائح الموز الطازج والعسل الطبيعي</p>
                     <span class="price">3.5 $</span>
                 </div>
                 <div class="menu-item">
-                    <img loading="lazy" decoding="async" src="images/Basbousa_with_Cream.jpg" alt="كريب شوكولاتة">
+                    <picture>
+                      <source type="image/avif" srcset="images/Basbousa_with_Cream-320.avif 320w, images/Basbousa_with_Cream-640.avif 640w, images/Basbousa_with_Cream-960.avif 960w" sizes="(max-width:640px) 50vw, (max-width:1024px) 33vw, 25vw">
+                      <source type="image/webp" srcset="images/Basbousa_with_Cream-320.webp 320w, images/Basbousa_with_Cream-640.webp 640w, images/Basbousa_with_Cream-960.webp 960w" sizes="(max-width:640px) 50vw, (max-width:1024px) 33vw, 25vw">
+                      <img loading="lazy" decoding="async" src="images/Basbousa_with_Cream.jpg" alt="كريب شوكولاتة">
+                    </picture>
                     <h3> الشوكولاتة البيضاء</h3>
                     <p>كريب محشو بالشوكولاتة البيضاء والمكسرات المجروشة</p>
                     <span class="price">3 $</span>
                 </div>
                 <div class="menu-item">
-                    <img loading="lazy" decoding="async" src="images/cake1.jpg" alt="كيك شوكولاتة">
+                    <picture>
+                      <source type="image/avif" srcset="images/cake1-320.avif 320w, images/cake1-640.avif 640w, images/cake1-960.avif 960w" sizes="(max-width:640px) 50vw, (max-width:1024px) 33vw, 25vw">
+                      <source type="image/webp" srcset="images/cake1-320.webp 320w, images/cake1-640.webp 640w, images/cake1-960.webp 960w" sizes="(max-width:640px) 50vw, (max-width:1024px) 33vw, 25vw">
+                      <img loading="lazy" decoding="async" src="images/cake1.jpg" alt="كيك شوكولاتة">
+                    </picture>
                     <h3>كيك الشوكولاتة الفاخر</h3>
                     <p>قطعة كيك شوكولاتة غنية مع طبقات الكريمة والفواكه الطازجة</p>
                     <span class="price">2 $</span>
                 </div>
                 <div class="menu-item">
-                    <img loading="lazy" decoding="async" src="images/Cheesecake.png" alt="تشيز كيك">
+                    <picture>
+                      <source type="image/avif" srcset="images/Cheesecake-320.avif 320w, images/Cheesecake-640.avif 640w, images/Cheesecake-960.avif 960w" sizes="(max-width:640px) 50vw, (max-width:1024px) 33vw, 25vw">
+                      <source type="image/webp" srcset="images/Cheesecake-320.webp 320w, images/Cheesecake-640.webp 640w, images/Cheesecake-960.webp 960w" sizes="(max-width:640px) 50vw, (max-width:1024px) 33vw, 25vw">
+                      <img loading="lazy" decoding="async" src="images/Cheesecake.png" alt="تشيز كيك">
+                    </picture>
                     <h3>تشيز كيك بالفراولة</h3>
                     <p>قطعة تشيز كيك كريمية مع صوص الفراولة الطازج</p>
                     <span class="price">2 $</span>
                 </div>
                 <div class="menu-item">
-                    <img loading="lazy" decoding="async" src="images/Basbousa.png" alt="نابلسيا">
+                    <picture>
+                      <source type="image/avif" srcset="images/Basbousa-320.avif 320w, images/Basbousa-640.avif 640w, images/Basbousa-960.avif 960w" sizes="(max-width:640px) 50vw, (max-width:1024px) 33vw, 25vw">
+                      <source type="image/webp" srcset="images/Basbousa-320.webp 320w, images/Basbousa-640.webp 640w, images/Basbousa-960.webp 960w" sizes="(max-width:640px) 50vw, (max-width:1024px) 33vw, 25vw">
+                      <img loading="lazy" decoding="async" src="images/Basbousa.png" alt="نابلسيا">
+                    </picture>
                     <h3>نابلسيا مع بزظا   </h3>
                     <p>قطعة  فانيليا طرية مع كريمة الزبدة </p>
                     <span class="price">3 $</span>
                 </div>
                 <div class="menu-item">
-                    <img loading="lazy" decoding="async" src="images/Basbousa_with_Cream.jpg" alt="كيك جزر">
+                    <picture>
+                      <source type="image/avif" srcset="images/Basbousa_with_Cream-320.avif 320w, images/Basbousa_with_Cream-640.avif 640w, images/Basbousa_with_Cream-960.avif 960w" sizes="(max-width:640px) 50vw, (max-width:1024px) 33vw, 25vw">
+                      <source type="image/webp" srcset="images/Basbousa_with_Cream-320.webp 320w, images/Basbousa_with_Cream-640.webp 640w, images/Basbousa_with_Cream-960.webp 960w" sizes="(max-width:640px) 50vw, (max-width:1024px) 33vw, 25vw">
+                      <img loading="lazy" decoding="async" src="images/Basbousa_with_Cream.jpg" alt="كيك بالمكسرات">
+                    </picture>
                     <h3>كيك  بالمكسرات</h3>
                     <p>قطعة كيك جزر صحية مع المكسرات وكريمة الجبن</p>
                     <span class="price">3 $</span>
                 </div>
                 <div class="menu-item">
-                    <img loading="lazy" decoding="async" src="images/arabic_sweets1.jpg" alt="حلويات  ">
+                    <picture>
+                      <source type="image/avif" srcset="images/arabic_sweets1-320.avif 320w, images/arabic_sweets1-640.avif 640w, images/arabic_sweets1-960.avif 960w" sizes="(max-width:640px) 50vw, (max-width:1024px) 33vw, 25vw">
+                      <source type="image/webp" srcset="images/arabic_sweets1-320.webp 320w, images/arabic_sweets1-640.webp 640w, images/arabic_sweets1-960.webp 960w" sizes="(max-width:640px) 50vw, (max-width:1024px) 33vw, 25vw">
+                      <img loading="lazy" decoding="async" src="images/arabic_sweets1.jpg" alt="حلويات عربية">
+                    </picture>
                     <h3>حلويات مشك   </h3>
                     <p>قطعة كيك ليمون خفيفة مع كريمة الليمون الطازجة</p>
                     <span class="price">19 $</span>
@@ -562,19 +740,31 @@
             <h2>🍓 سلطات الفواكه</h2>
             <div class="items-grid">
                 <div class="menu-item">
-                    <img loading="lazy" decoding="async" src="images/fruit1.jpg" alt="سلطة فواكه مشكلة">
+                    <picture>
+                      <source type="image/avif" srcset="images/fruit1-320.avif 320w, images/fruit1-640.avif 640w, images/fruit1-960.avif 960w" sizes="(max-width:640px) 50vw, (max-width:1024px) 33vw, 25vw">
+                      <source type="image/webp" srcset="images/fruit1-320.webp 320w, images/fruit1-640.webp 640w, images/fruit1-960.webp 960w" sizes="(max-width:640px) 50vw, (max-width:1024px) 33vw, 25vw">
+                      <img loading="lazy" decoding="async" src="images/fruit1.jpg" alt="سلطة فواكه مشكلة">
+                    </picture>
                     <h3>سلطة الفواكه المشكلة</h3>
                     <p>خليط من الفواكه الطازجة الموسمية مع النعناع والعسل</p>
                     <span class="price">3 $</span>
                 </div>
                 <div class="menu-item">
-                    <img loading="lazy" decoding="async" src="images/fruit1.jpg" alt="سلطة استوائية">
+                    <picture>
+                      <source type="image/avif" srcset="images/fruit1-320.avif 320w, images/fruit1-640.avif 640w, images/fruit1-960.avif 960w" sizes="(max-width:640px) 50vw, (max-width:1024px) 33vw, 25vw">
+                      <source type="image/webp" srcset="images/fruit1-320.webp 320w, images/fruit1-640.webp 640w, images/fruit1-960.webp 960w" sizes="(max-width:640px) 50vw, (max-width:1024px) 33vw, 25vw">
+                      <img loading="lazy" decoding="async" src="images/fruit1.jpg" alt="سلطة استوائية">
+                    </picture>
                     <h3>سلطة الفواكه الاستوائية</h3>
                     <p>مانجو وأناناس وكيوي مع جوز الهند المبشور</p>
                     <span class="price">6 $</span>
                 </div>
                 <div class="menu-item">
-                    <img loading="lazy" decoding="async" src="images/Fruit_Cocktail.jpg" alt="سلطة توت">
+                    <picture>
+                      <source type="image/avif" srcset="images/Fruit_Cocktail-320.avif 320w, images/Fruit_Cocktail-640.avif 640w, images/Fruit_Cocktail-960.avif 960w" sizes="(max-width:640px) 50vw, (max-width:1024px) 33vw, 25vw">
+                      <source type="image/webp" srcset="images/Fruit_Cocktail-320.webp 320w, images/Fruit_Cocktail-640.webp 640w, images/Fruit_Cocktail-960.webp 960w" sizes="(max-width:640px) 50vw, (max-width:1024px) 33vw, 25vw">
+                      <img loading="lazy" decoding="async" src="images/Fruit_Cocktail.jpg" alt="سلطة التوت">
+                    </picture>
                     <h3>سلطة التوت المشكل</h3>
                     <p>فراولة وتوت أزرق وتوت أحمر مع الكريمة المخفوقة</p>
                     <span class="price">4 $</span>
@@ -587,43 +777,71 @@
             <h2>🍕 المعجنات و البيتزا </h2>
             <div class="items-grid">
                 <div class="menu-item">
-                    <img loading="lazy" decoding="async" src="images/margherita1.jpg" alt="بيتزا مارجريتا">
+                    <picture>
+                      <source type="image/avif" srcset="images/margherita1-320.avif 320w, images/margherita1-640.avif 640w, images/margherita1-960.avif 960w" sizes="(max-width:640px) 50vw, (max-width:1024px) 33vw, 25vw">
+                      <source type="image/webp" srcset="images/margherita1-320.webp 320w, images/margherita1-640.webp 640w, images/margherita1-960.webp 960w" sizes="(max-width:640px) 50vw, (max-width:1024px) 33vw, 25vw">
+                      <img loading="lazy" decoding="async" src="images/margherita1.jpg" alt="بيتزا مارجريتا">
+                    </picture>
                     <h3>بيتزا مارجريتا الكلاسيكية</h3>
                     <p>بيتزا إيطالية أصيلة مع صوص الطماطم وجبن الموزاريلا الطازج وأوراق الريحان</p>
                     <span class="price">6 $</span>
                 </div>
                 <div class="menu-item">
-                    <img loading="lazy" decoding="async" src="images/pepperoni1.jpg" alt="بيتزا بيبروني">
+                    <picture>
+                      <source type="image/avif" srcset="images/pepperoni1-320.avif 320w, images/pepperoni1-640.avif 640w, images/pepperoni1-960.avif 960w" sizes="(max-width:640px) 50vw, (max-width:1024px) 33vw, 25vw">
+                      <source type="image/webp" srcset="images/pepperoni1-320.webp 320w, images/pepperoni1-640.webp 640w, images/pepperoni1-960.webp 960w" sizes="(max-width:640px) 50vw, (max-width:1024px) 33vw, 25vw">
+                      <img loading="lazy" decoding="async" src="images/pepperoni1.jpg" alt="بيتزا بيبروني">
+                    </picture>
                     <h3>بيتزا البيبروني الحارة</h3>
                     <p>بيتزا مع شرائح البيبروني الحار وجبن الموزاريلا على عجينة رقيقة مقرمشة</p>
                     <span class="price">6 $</span>
                 </div>
                 <div class="menu-item">
-                    <img loading="lazy" decoding="async" src="images/vegetarian1.jpg" alt="بيتزا نباتية">
+                    <picture>
+                      <source type="image/avif" srcset="images/vegetarian1-320.avif 320w, images/vegetarian1-640.avif 640w, images/vegetarian1-960.avif 960w" sizes="(max-width:640px) 50vw, (max-width:1024px) 33vw, 25vw">
+                      <source type="image/webp" srcset="images/vegetarian1-320.webp 320w, images/vegetarian1-640.webp 640w, images/vegetarian1-960.webp 960w" sizes="(max-width:640px) 50vw, (max-width:1024px) 33vw, 25vw">
+                      <img loading="lazy" decoding="async" src="images/vegetarian1.jpg" alt="بيتزا نباتية">
+                    </picture>
                     <h3>بيتزا الخضار الطازجة</h3>
                     <p>بيتزا نباتية مع الفلفل الملون والطماطم والزيتون والفطر الطازج</p>
                     <span class="price">7 $</span>
                 </div>
                 <div class="menu-item">
-                    <img loading="lazy" decoding="async" src="images/Pizza_Margherita.png" alt="بيتزا أربعة أجبان">
+                    <picture>
+                      <source type="image/avif" srcset="images/Pizza_Margherita-320.avif 320w, images/Pizza_Margherita-640.avif 640w, images/Pizza_Margherita-960.avif 960w" sizes="(max-width:640px) 50vw, (max-width:1024px) 33vw, 25vw">
+                      <source type="image/webp" srcset="images/Pizza_Margherita-320.webp 320w, images/Pizza_Margherita-640.webp 640w, images/Pizza_Margherita-960.webp 960w" sizes="(max-width:640px) 50vw, (max-width:1024px) 33vw, 25vw">
+                      <img loading="lazy" decoding="async" src="images/Pizza_Margherita.png" alt="بيتزا أربعة أجبان">
+                    </picture>
                     <h3>بيتزا الأجبان الأربعة</h3>
                     <p>خليط من أربعة أنواع جبن: موزاريلا، بارميزان، جورجونزولا، وريكوتا</p>
                     <span class="price">6.5 $</span>
                 </div>
                 <div class="menu-item">
-                    <img loading="lazy" decoding="async" src="images/Cheese_Manakish.png" alt="زعتر  ">
+                    <picture>
+                      <source type="image/avif" srcset="images/Cheese_Manakish-320.avif 320w, images/Cheese_Manakish-640.avif 640w, images/Cheese_Manakish-960.avif 960w" sizes="(max-width:640px) 50vw, (max-width:1024px) 33vw, 25vw">
+                      <source type="image/webp" srcset="images/Cheese_Manakish-320.webp 320w, images/Cheese_Manakish-640.webp 640w, images/Cheese_Manakish-960.webp 960w" sizes="(max-width:640px) 50vw, (max-width:1024px) 33vw, 25vw">
+                      <img loading="lazy" decoding="async" src="images/Cheese_Manakish.png" alt="منقوشة زعتر">
+                    </picture>
                     <h3>منقوشة زعتر   </h3>
                     <p>عجينة عربية بزعتر الفاخر         </p>
                     <span class="price">2 $</span>
                 </div>
                 <div class="menu-item">
-                    <img loading="lazy" decoding="async" src="images/Garlic_Bread.png" alt="جبنة   ">
+                    <picture>
+                      <source type="image/avif" srcset="images/Garlic_Bread-320.avif 320w, images/Garlic_Bread-640.avif 640w, images/Garlic_Bread-960.avif 960w" sizes="(max-width:640px) 50vw, (max-width:1024px) 33vw, 25vw">
+                      <source type="image/webp" srcset="images/Garlic_Bread-320.webp 320w, images/Garlic_Bread-640.webp 640w, images/Garlic_Bread-960.webp 960w" sizes="(max-width:640px) 50vw, (max-width:1024px) 33vw, 25vw">
+                      <img loading="lazy" decoding="async" src="images/Garlic_Bread.png" alt="منقوشة جبنة">
+                    </picture>
                     <h3>منقوشة جبنة   </h3>
                     <p>عجينة عربية بزعتر الفاخر         </p>
                     <span class="price">2 $</span>
                 </div>
                 <div class="menu-item">
-                    <img loading="lazy" decoding="async" src="images/Spinach_Fatayer.png" alt="جبنة   ">
+                    <picture>
+                      <source type="image/avif" srcset="images/Spinach_Fatayer-320.avif 320w, images/Spinach_Fatayer-640.avif 640w, images/Spinach_Fatayer-960.avif 960w" sizes="(max-width:640px) 50vw, (max-width:1024px) 33vw, 25vw">
+                      <source type="image/webp" srcset="images/Spinach_Fatayer-320.webp 320w, images/Spinach_Fatayer-640.webp 640w, images/Spinach_Fatayer-960.webp 960w" sizes="(max-width:640px) 50vw, (max-width:1024px) 33vw, 25vw">
+                      <img loading="lazy" decoding="async" src="images/Spinach_Fatayer.png" alt="سمبوسك">
+                    </picture>
                     <h3> سمبوسك   </h3>
                     <p>عجينة عربية  الفاخر         </p>
                     <span class="price">4 $</span>
@@ -636,37 +854,61 @@
             <h2>☕ المشروبات </h2>
             <div class="items-grid">
                 <div class="menu-item">
-                    <img loading="lazy" decoding="async" src="images/orange1.jpg" alt=" ">
+                    <picture>
+                      <source type="image/avif" srcset="images/orange1-320.avif 320w, images/orange1-640.avif 640w, images/orange1-960.avif 960w" sizes="(max-width:640px) 50vw, (max-width:1024px) 33vw, 25vw">
+                      <source type="image/webp" srcset="images/orange1-320.webp 320w, images/orange1-640.webp 640w, images/orange1-960.webp 960w" sizes="(max-width:640px) 50vw, (max-width:1024px) 33vw, 25vw">
+                      <img loading="lazy" decoding="async" src="images/orange1.jpg" alt="عصير البرتقال">
+                    </picture>
                     <h3>عصير البرتقال الطازج</h3>
                     <p>عصير برتقال طبيعي 100% معصور طازجاً، غني بفيتامين سي</p>
                     <span class="price">4 $</span>
                 </div>
                 <div class="menu-item">
-                    <img loading="lazy" decoding="async" src="images/Lemon_Mint_Juice.png" alt=" ">
+                    <picture>
+                      <source type="image/avif" srcset="images/Lemon_Mint_Juice-320.avif 320w, images/Lemon_Mint_Juice-640.avif 640w, images/Lemon_Mint_Juice-960.avif 960w" sizes="(max-width:640px) 50vw, (max-width:1024px) 33vw, 25vw">
+                      <source type="image/webp" srcset="images/Lemon_Mint_Juice-320.webp 320w, images/Lemon_Mint_Juice-640.webp 640w, images/Lemon_Mint_Juice-960.webp 960w" sizes="(max-width:640px) 50vw, (max-width:1024px) 33vw, 25vw">
+                      <img loading="lazy" decoding="async" src="images/Lemon_Mint_Juice.png" alt="عصير ليمون بالنعناع">
+                    </picture>
                     <h3>عصير ليمون بالنعناع</h3>
                     <p>عصير ليمون طازج مع النعناع والثلج، مشروب منعش ومثالي للأجواء الحارة</p>
                     <span class="price">15 $</span>
                 </div>
                 <div class="menu-item">
-                    <img loading="lazy" decoding="async" src="images/drink1.jpg" alt=" ">
+                    <picture>
+                      <source type="image/avif" srcset="images/drink1-320.avif 320w, images/drink1-640.avif 640w, images/drink1-960.avif 960w" sizes="(max-width:640px) 50vw, (max-width:1024px) 33vw, 25vw">
+                      <source type="image/webp" srcset="images/drink1-320.webp 320w, images/drink1-640.webp 640w, images/drink1-960.webp 960w" sizes="(max-width:640px) 50vw, (max-width:1024px) 33vw, 25vw">
+                      <img loading="lazy" decoding="async" src="images/drink1.jpg" alt="سموثي الفواكه">
+                    </picture>
                     <h3>سموثي الفواكه المشكلة</h3>
                     <p>خليط منعش من المانجو والفراولة والموز مع الحليب وقطع الثلج</p>
                     <span class="price">30 $</span>
                 </div>
                 <div class="menu-item">
-                    <img loading="lazy" decoding="async" src="images/Arabic_Coffee.png" alt=" ">
+                    <picture>
+                      <source type="image/avif" srcset="images/Arabic_Coffee-320.avif 320w, images/Arabic_Coffee-640.avif 640w, images/Arabic_Coffee-960.avif 960w" sizes="(max-width:640px) 50vw, (max-width:1024px) 33vw, 25vw">
+                      <source type="image/webp" srcset="images/Arabic_Coffee-320.webp 320w, images/Arabic_Coffee-640.webp 640w, images/Arabic_Coffee-960.webp 960w" sizes="(max-width:640px) 50vw, (max-width:1024px) 33vw, 25vw">
+                      <img loading="lazy" decoding="async" src="images/Arabic_Coffee.png" alt="قهوة عربية">
+                    </picture>
                     <h3>قهوة عربية أصيلة</h3>
                     <p>قهوة عربية محمصة طازجة مع الهيل والزعفران، تُقدم مع التمر</p>
                     <span class="price">15 $</span>
                 </div>
                 <div class="menu-item">
-                    <img loading="lazy" decoding="async" src="images/Turkish_Tea.png" alt=" ">
+                    <picture>
+                      <source type="image/avif" srcset="images/Turkish_Tea-320.avif 320w, images/Turkish_Tea-640.avif 640w, images/Turkish_Tea-960.avif 960w" sizes="(max-width:640px) 50vw, (max-width:1024px) 33vw, 25vw">
+                      <source type="image/webp" srcset="images/Turkish_Tea-320.webp 320w, images/Turkish_Tea-640.webp 640w, images/Turkish_Tea-960.webp 960w" sizes="(max-width:640px) 50vw, (max-width:1024px) 33vw, 25vw">
+                      <img loading="lazy" decoding="async" src="images/Turkish_Tea.png" alt="شاي أحمر">
+                    </picture>
                     <h3>شاي أحمر بالنعناع</h3>
                     <p>شاي أحمر قوي مع أوراق النعناع الطازج والسكر</p>
                     <span class="price">10 $</span>
                 </div>
                 <div class="menu-item">
-                    <img loading="lazy" decoding="async" src="images/Cappuccino.png" alt=" ">
+                    <picture>
+                      <source type="image/avif" srcset="images/Cappuccino-320.avif 320w, images/Cappuccino-640.avif 640w, images/Cappuccino-960.avif 960w" sizes="(max-width:640px) 50vw, (max-width:1024px) 33vw, 25vw">
+                      <source type="image/webp" srcset="images/Cappuccino-320.webp 320w, images/Cappuccino-640.webp 640w, images/Cappuccino-960.webp 960w" sizes="(max-width:640px) 50vw, (max-width:1024px) 33vw, 25vw">
+                      <img loading="lazy" decoding="async" src="images/Cappuccino.png" alt="كابتشينو">
+                    </picture>
                     <h3>كابتشينو إيطالي</h3>
                     <p>قهوة إسبريسو مع الحليب المبخر ورغوة الحليب الكريمية</p>
                     <span class="price">18 $</span>
