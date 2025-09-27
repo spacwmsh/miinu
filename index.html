@@ -17,6 +17,10 @@
     <link rel="dns-prefetch" href="//cdnjs.cloudflare.com">
     <link rel="preconnect" href="https://cdnjs.cloudflare.com" crossorigin>
     <link rel="preload" href="script.js" as="script">
+
+    <!-- 🔼 Preload لأولى صورة فوق الطيّة -->
+    <link rel="preload" as="image" href="images/breakfast2.jpg">
+
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
 </head>
 <body>
@@ -247,7 +251,10 @@
             <h2>🍳 الفطور الصباحي</h2>
             <div class="items-grid">
                 <div class="menu-item">
-                    <img loading="lazy" decoding="async" src="images/breakfast2.jpg" alt="فطور عربي تقليدي">
+                    <!-- 🔼 أول صورة: eager + أولوية عالية + أبعاد ثابتة لمنع القفز -->
+                    <img loading="eager" decoding="sync" fetchpriority="high"
+                         src="images/breakfast2.jpg" alt="فطور عربي تقليدي"
+                         width="640" height="480">
                     <h3>فطور عربي تقليدي</h3>
                     <p>فطور شامل يضم الحمص والفول والجبن والزيتون والخضار الطازجة مع الخبز العربي</p>
                     <span class="price">7 $</span>
