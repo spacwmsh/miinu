@@ -20,34 +20,42 @@ self.addEventListener('install', function(event) {
 
 // Fetch event - serve from cache when possible
 self.addEventListener('fetch', function(event) {
-    event.respondWith(
-        caches.match(event.request)
-            .then(function(response) {
-                // Cache hit - return response
-                if (response) {
-                    return response;
-                }
+  const req = event.request;
 
-                return fetch(event.request).then(
-                    function(response) {
-                        // Check if we received a valid response
-                        if(!response || response.status !== 200 || response.type !== 'basic') {
-                            return response;
-                        }
+  // للصور: stale-while-revalidate
+  if (req.destination === 'image' && req.method === 'GET') {
+    event.respondWith((async () => {
+      const cache = await caches.open('images-v1');
+      const cached = await cache.match(req);
+      try {
+        const fresh = await fetch(req);
+        if (fresh && fresh.status === 200) {
+          cache.put(req, fresh.clone());
+        }
+        return cached || fresh;
+      } catch (e) {
+        return cached || Promise.reject(e);
+      }
+    })());
+    return;
+  }
 
-                        // Clone the response
-                        var responseToCache = response.clone();
-
-                        caches.open(CACHE_NAME)
-                            .then(function(cache) {
-                                cache.put(event.request, responseToCache);
-                            });
-
-                        return response;
-                    }
-                );
-            })
-    );
+  // باقي الطلبات: cache-first ثم الشبكة
+  event.respondWith(
+    caches.match(req).then(function(response) {
+      if (response) return response;
+      return fetch(req).then(function(networkResponse) {
+        if (!networkResponse || networkResponse.status !== 200 || networkResponse.type !== 'basic') {
+          return networkResponse;
+        }
+        const responseToCache = networkResponse.clone();
+        caches.open(CACHE_NAME).then(function(cache) {
+          cache.put(req, responseToCache);
+        });
+        return networkResponse;
+      });
+    })
+  );
 });
 
 // Activate event - clean up old caches

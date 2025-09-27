@@ -486,31 +486,30 @@ function setupSmoothScrolling() {
 function setupImageLazyLoading() {
   const images = document.querySelectorAll('.menu-item img');
 
-  images.forEach((img) => {
-    // استفد من التحميل الكسول الأصلي
-    img.setAttribute('loading', 'lazy');
+  images.forEach((img, idx) => {
     img.setAttribute('decoding', 'async');
-    // أعطِ المتصفح حرية ترتيب الأولويات
-    if ('fetchPriority' in img) {
-      img.fetchPriority = 'low';
+
+    // اعتبر أول 3–4 صور "فوق الطيّة"
+    const aboveTheFold = idx < 4 || img.getBoundingClientRect().top < (window.innerHeight * 0.9);
+
+    if (aboveTheFold) {
+      img.setAttribute('loading', 'eager');
+      img.setAttribute('decoding', 'sync');
+      if ('fetchPriority' in img) img.fetchPriority = 'high';
+    } else {
+      img.setAttribute('loading', 'lazy');
+      if ('fetchPriority' in img) img.fetchPriority = 'low';
     }
 
-    // fallback في حال فشل التحميل
-    img.addEventListener('error', () => {
-      // يمكنك وضع صورة بديلة هنا إذا رغبت
-      // img.src = 'fallback.jpg';
-    }, { once: true });
+    // fallback اختياري عند فشل التحميل
+    img.addEventListener('error', () => {});
   });
 
-  // مراقب خفيف لبدء التحميل مبكرًا قليلاً (لا يغيّر src)
   if ('IntersectionObserver' in window) {
     const imageObserver = new IntersectionObserver((entries, observer) => {
       entries.forEach(({ isIntersecting, target }) => {
         if (isIntersecting) {
-          // شجّع المتصفح على فك ترميز الصورة مبكرًا إن أمكن
-          if (typeof target.decode === 'function') {
-            target.decode().catch(() => {});
-          }
+          if (typeof target.decode === 'function') target.decode().catch(() => {});
           observer.unobserve(target);
         }
       });
@@ -519,6 +518,7 @@ function setupImageLazyLoading() {
     images.forEach((img) => imageObserver.observe(img));
   }
 }
+
 
 // Keyboard navigation
 function handleKeyboardNavigation(e) {
