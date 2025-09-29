@@ -21,9 +21,15 @@ document.addEventListener('DOMContentLoaded', function () {
   setupEventListeners();
   updateActiveNavLink();
   setupSmoothScrolling();
-  setupImageLazyLoading();
+  setupImageLazyLoading();         // تهيئة التحميل الذكي للصور
+  prioritizeAboveTheFoldImages();  // ★ إعطاء أولوية عالية لأول صور فوق الطيّة
   setupTouchGestures();
   initializeTooltips();
+
+  // إعادة حساب الأولويات مرة واحدة بعد أول تمرير
+  window.addEventListener('scroll', () => {
+    prioritizeAboveTheFoldImages();
+  }, { passive: true, once: true });
 
   // Add loading animation
   showLoading();
@@ -39,7 +45,8 @@ function initializeApp() {
     img.addEventListener('load', function () {
       this.style.animation = 'none';
       this.style.background = 'none';
-    });
+      this.dataset.loaded = 'true';
+    }, { once: true });
   });
 
   // Add intersection observer for animations
@@ -62,12 +69,12 @@ function initializeApp() {
 // Setup event listeners
 function setupEventListeners() {
   // Sidebar controls
-  menuBtn.addEventListener('click', openSidebar);
-  closeSidebar.addEventListener('click', closeSidebarFunc);
-  overlay.addEventListener('click', closeSidebarFunc);
+  if (menuBtn) menuBtn.addEventListener('click', openSidebar);
+  if (closeSidebar) closeSidebar.addEventListener('click', closeSidebarFunc);
+  if (overlay) overlay.addEventListener('click', closeSidebarFunc);
 
   // Categories dropdown
-  categoriesBtn.addEventListener('click', showCategoriesDropdownWithInfo);
+  if (categoriesBtn) categoriesBtn.addEventListener('click', showCategoriesDropdownWithInfo);
 
   // Category items click
   document.querySelectorAll('.category-item').forEach((item) => {
@@ -79,16 +86,18 @@ function setupEventListeners() {
   });
 
   // Search functionality
-  searchBtn.addEventListener('click', toggleSearchBar);
-  clearSearch.addEventListener('click', clearSearchInput);
+  if (searchBtn) searchBtn.addEventListener('click', toggleSearchBar);
+  if (clearSearch) clearSearch.addEventListener('click', clearSearchInput);
   // اجعل البحث مُخفَّض الاستدعاء لمنع الضغط على الواجهة
-  searchInput.addEventListener('input', debouncedSearch);
-  searchInput.addEventListener('keypress', function (e) {
-    if (e.key === 'Enter') {
-      e.preventDefault();
-      performSearch();
-    }
-  });
+  if (searchInput) {
+    searchInput.addEventListener('input', debouncedSearch);
+    searchInput.addEventListener('keypress', function (e) {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        performSearch();
+      }
+    });
+  }
 
   // Navigation links
   document.querySelectorAll('nav a').forEach((link) => {
@@ -467,7 +476,7 @@ function setupTouchGestures() {
       isScrolling = true;
       e.preventDefault();
     }
-  });
+  }, { passive: false });
 
   navContainer.addEventListener('touchend', () => {
     startX = null;
@@ -482,43 +491,83 @@ function setupSmoothScrolling() {
   document.documentElement.style.scrollBehavior = 'smooth';
 }
 
+/* -------------------------------
+   Image loading optimizations
+   ------------------------------- */
+
+// يحدد الصور فوق الطيّة ويعطيها fetchPriority=high و loading=eager لتسريع LCP
+function prioritizeAboveTheFoldImages() {
+  const viewportH = window.innerHeight || document.documentElement.clientHeight;
+  const images = Array.from(document.querySelectorAll('.menu-item img'));
+
+  // التقط أول صورتين تظهران داخل نطاق +150px من أسفل الشاشة
+  let boosted = 0;
+  for (const img of images) {
+    const rect = img.getBoundingClientRect();
+    const isAboveFold = rect.top < (viewportH + 150);
+    if (isAboveFold && boosted < 2) {
+      if ('fetchPriority' in img) img.fetchPriority = 'high';
+      // لو لم تُحمّل بعد، اجعلها eager لتسبق غيرها
+      if (!img.complete) {
+        img.setAttribute('loading', 'eager');
+        try { img.decode?.(); } catch {}
+      }
+      boosted++;
+    } else {
+      // البقية أولوية منخفضة + تحميل كسول
+      if ('fetchPriority' in img) img.fetchPriority = 'low';
+      img.setAttribute('loading', 'lazy');
+    }
+  }
+}
+
 // Image lazy loading (إصلاح رئيسي: عدم مسح src مطلقًا)
 function setupImageLazyLoading() {
   const images = document.querySelectorAll('.menu-item img');
 
-  images.forEach((img, idx) => {
+  const conn = navigator.connection || navigator.mozConnection || navigator.webkitConnection;
+  const saveData = !!(conn && conn.saveData);
+  const effectiveType = conn?.effectiveType || ''; // 2g/3g/4g
+  const isSlow = saveData || /(^|[^\w])(2g|3g)([^\w]|$)/i.test(effectiveType);
+
+  images.forEach((img) => {
+    // التحميل الافتراضي
+    if (!img.hasAttribute('loading')) img.setAttribute('loading', 'lazy');
     img.setAttribute('decoding', 'async');
+    if ('fetchPriority' in img) img.fetchPriority = 'low';
 
-    // اعتبر أول 3–4 صور "فوق الطيّة"
-    const aboveTheFold = idx < 4 || img.getBoundingClientRect().top < (window.innerHeight * 0.9);
-
-    if (aboveTheFold) {
-      img.setAttribute('loading', 'eager');
-      img.setAttribute('decoding', 'sync');
-      if ('fetchPriority' in img) img.fetchPriority = 'high';
-    } else {
-      img.setAttribute('loading', 'lazy');
-      if ('fetchPriority' in img) img.fetchPriority = 'low';
-    }
-
-    // fallback اختياري عند فشل التحميل
-    img.addEventListener('error', () => {});
+    // fallback في حال فشل التحميل
+    img.addEventListener('error', () => {
+      // يمكنك وضع صورة بديلة هنا إذا رغبت
+      // img.src = 'fallback.jpg';
+    }, { once: true });
   });
 
+  // مراقب خفيف لبدء فك الترميز مبكّرًا (لا يغيّر src)
   if ('IntersectionObserver' in window) {
     const imageObserver = new IntersectionObserver((entries, observer) => {
       entries.forEach(({ isIntersecting, target }) => {
         if (isIntersecting) {
-          if (typeof target.decode === 'function') target.decode().catch(() => {});
+          // شجّع المتصفح على فك ترميز الصورة مبكرًا إن أمكن
+          if (typeof target.decode === 'function') {
+            // نفّذ في أوقات الخمول لتجنب حظر الخيط
+            if ('requestIdleCallback' in window) {
+              requestIdleCallback(() => target.decode().catch(() => {}), { timeout: 500 });
+            } else {
+              Promise.resolve().then(() => target.decode()).catch(() => {});
+            }
+          }
           observer.unobserve(target);
         }
       });
-    }, { rootMargin: '200px 0px', threshold: 0.01 });
+    }, { 
+      rootMargin: isSlow ? '80px 0px' : '200px 0px', 
+      threshold: 0.01 
+    });
 
     images.forEach((img) => imageObserver.observe(img));
   }
 }
-
 
 // Keyboard navigation
 function handleKeyboardNavigation(e) {
@@ -557,6 +606,9 @@ function handleWindowResize() {
 
   // Update navigation indicators
   updateNavigationIndicators();
+
+  // أعد تقييم أولويات الصور عند تغيّر الطيّة
+  prioritizeAboveTheFoldImages();
 }
 
 // Scroll handler
