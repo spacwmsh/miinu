@@ -7,7 +7,7 @@ body {
     margin: 0;
     padding: 0;
     background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-    background-attachment: fixed;
+background-attachment: scroll; /* أو احذف السطر تمامًا */
     min-height: 100vh;
     direction: rtl;
     overflow-x: hidden;
@@ -1419,9 +1419,6 @@ html {
 .menu-item {
     will-change: transform;
     contain: layout style paint;
-    content-visibility: auto;
-contain-intrinsic-size: 400px 300px; /* تقدير يمنع القفز */
-
 }
 
 .menu-item img {
