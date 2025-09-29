@@ -25,8 +25,8 @@ self.addEventListener('fetch', function(event) {
   // للصور: stale-while-revalidate
   if (req.destination === 'image' && req.method === 'GET') {
     event.respondWith((async () => {
-      const cache = await caches.open('images-v1');
-      const cached = await cache.match(req);
+const cache = await caches.open(IMG_CACHE);
+const fresh = await fetch(req, { cache: 'no-store' });
       try {
         const fresh = await fetch(req);
         if (fresh && fresh.status === 200) {
@@ -64,10 +64,12 @@ self.addEventListener('activate', function(event) {
         caches.keys().then(function(cacheNames) {
             return Promise.all(
                 cacheNames.map(function(cacheName) {
-                    if (cacheName !== CACHE_NAME) {
-                        console.log('Deleting old cache:', cacheName);
-                        return caches.delete(cacheName);
-                    }
+       if (![CACHE_NAME, IMG_CACHE].includes(cacheName)) {
+    console.log('Deleting old cache:', cacheName);
+    return caches.delete(cacheName);
+}
+
+                    
                 })
             );
         })

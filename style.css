@@ -1419,6 +1419,9 @@ html {
 .menu-item {
     will-change: transform;
     contain: layout style paint;
+    content-visibility: auto;
+contain-intrinsic-size: 400px 300px; /* تقدير يمنع القفز */
+
 }
 
 .menu-item img {
