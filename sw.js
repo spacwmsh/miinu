@@ -1,9 +1,12 @@
 // Service Worker for Digital Menu (optimized)
-const VERSION = 'v2.0';
+const VERSION = 'v2.1'; // <- تم التحديث
 const STATIC_CACHE = `dm-static-${VERSION}`;
 const PAGES_CACHE  = `dm-pages-${VERSION}`;
 const IMAGES_CACHE = `dm-images-${VERSION}`;
 const ALLOWED_CACHES = new Set([STATIC_CACHE, PAGES_CACHE, IMAGES_CACHE]);
+
+// حد أقصى أوضح لكاش الصور
+const IMAGE_CACHE_MAX_ITEMS = 200; // <- كان 60
 
 // Assets to precache (relative to SW scope to work under subdirectories)
 const STATIC_ASSETS = [
@@ -18,7 +21,7 @@ const STATIC_ASSETS = [
 ];
 
 // ---------- Helpers ----------
-async function trimCache(cacheName, maxItems = 60) {
+async function trimCache(cacheName, maxItems = IMAGE_CACHE_MAX_ITEMS) {
   const cache = await caches.open(cacheName);
   const keys = await cache.keys();
   if (keys.length > maxItems) {
@@ -121,11 +124,12 @@ self.addEventListener('fetch', (event) => {
   if (req.destination === 'image') {
     event.respondWith((async () => {
       const cache = await caches.open(IMAGES_CACHE);
+      // ملاحظة: ignoreSearch=true مفيد لتقليل التكرار لصور لها querystring
       const cached = await cache.match(req, { ignoreSearch: true });
       const networkPromise = fetch(req)
         .then(async (res) => {
           if (res && (res.ok || res.type === 'opaque')) {
-            cache.put(req, res.clone()).then(() => trimCache(IMAGES_CACHE, 60));
+            cache.put(req, res.clone()).then(() => trimCache(IMAGES_CACHE, IMAGE_CACHE_MAX_ITEMS)); // <- كان 60
           }
           return res;
         })
