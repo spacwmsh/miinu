@@ -1,3 +1,5 @@
+// script.js
+
 // Global variables
 let currentRating = 0;
 let searchTimeout;
@@ -17,6 +19,9 @@ const ratingModal = document.getElementById('ratingModal');
 
 // Initialize app
 document.addEventListener('DOMContentLoaded', function () {
+  // أظهر اللودر مبكرًا (سيُخفى لحظة جاهزية أول صورة مهمة بدل تأخير ثابت)
+  showLoading();
+
   initializeApp();
   setupEventListeners();
   updateActiveNavLink();
@@ -31,10 +36,25 @@ document.addEventListener('DOMContentLoaded', function () {
     prioritizeAboveTheFoldImages();
   }, { passive: true, once: true });
 
-  // Add loading animation
-  showLoading();
-  // Hide loading after everything is ready
-  setTimeout(hideLoading, 1000);
+  // ★ إخفاء اللودر عند تحميل أول صورة LCP (ذات fetchpriority=high) أو أول صورة قائمة
+  const lcpImg =
+    document.querySelector('img[fetchpriority="high"]') ||
+    document.querySelector('.menu-item img');
+
+  if (lcpImg) {
+    if (!lcpImg.complete) {
+      // عند اكتمال أول صورة مهمّة نخفي اللودر
+      lcpImg.addEventListener('load', hideLoading, { once: true });
+      lcpImg.addEventListener('error', hideLoading, { once: true });
+      // لو تدعم decode، حاول فك الترميز مبكرًا
+      try { lcpImg.decode?.().then(() => hideLoading()).catch(() => {}); } catch {}
+    } else {
+      hideLoading();
+    }
+  } else {
+    // لا توجد صور؛ أخفِه فورًا
+    requestAnimationFrame(() => hideLoading());
+  }
 });
 
 // Initialize application
@@ -144,6 +164,7 @@ function setupEventListeners() {
 
 // Sidebar functions
 function openSidebar() {
+  if (!sidebar || !overlay) return;
   sidebar.classList.add('open');
   overlay.classList.add('active');
   document.body.style.overflow = 'hidden';
@@ -155,6 +176,7 @@ function openSidebar() {
 }
 
 function closeSidebarFunc() {
+  if (!sidebar || !overlay) return;
   sidebar.classList.remove('open');
   overlay.classList.remove('active');
   document.body.style.overflow = 'auto';
@@ -167,6 +189,7 @@ function closeSidebarAndGoHome() {
 
 // Categories dropdown functions
 function toggleCategoriesDropdown() {
+  if (!categoriesDropdown || !searchBar) return;
   categoriesDropdown.classList.toggle('hidden');
 
   // Close search if open
@@ -179,11 +202,13 @@ function toggleCategoriesDropdown() {
 }
 
 function closeCategoriesDropdown() {
+  if (!categoriesDropdown) return;
   categoriesDropdown.classList.add('hidden');
 }
 
 // Show categories dropdown with info (titles and counts)
 function showCategoriesDropdownWithInfo() {
+  if (!categoriesDropdown || !searchBar) return;
   categoriesDropdown.classList.remove('hidden');
   // Close search if open
   if (!searchBar.classList.contains('hidden')) {
@@ -198,11 +223,13 @@ function showCategoriesDropdownWithInfo() {
 // Breakfast dropdown functions
 function toggleBreakfastMenu() {
   const breakfastDropdown = document.getElementById('breakfastDropdown');
+  if (!breakfastDropdown) return;
+
   breakfastDropdown.classList.toggle('hidden');
 
   // Close other dropdowns
   closeCategoriesDropdown();
-  if (!searchBar.classList.contains('hidden')) {
+  if (searchBar && !searchBar.classList.contains('hidden')) {
     toggleSearchBar();
   }
 }
@@ -216,10 +243,11 @@ function closeBreakfastDropdown() {
 
 // Search functions
 function toggleSearchBar() {
+  if (!searchBar || !categoriesDropdown) return;
   searchBar.classList.toggle('hidden');
 
   if (!searchBar.classList.contains('hidden')) {
-    searchInput.focus();
+    searchInput?.focus();
     // Close categories if open
     closeCategoriesDropdown();
   } else {
@@ -228,6 +256,7 @@ function toggleSearchBar() {
 }
 
 function clearSearchInput() {
+  if (!searchInput) return;
   searchInput.value = '';
   showAllItems();
   searchInput.focus();
@@ -239,6 +268,7 @@ function handleSearch() {
 }
 
 function performSearch() {
+  if (!searchInput) return;
   const query = searchInput.value.trim().toLowerCase();
 
   if (query === '') {
@@ -299,7 +329,7 @@ function showNoResultsMessage() {
             <p style="color: #999;">جرب البحث بكلمات مختلفة</p>
         </div>
     `;
-  document.querySelector('main').appendChild(message);
+  document.querySelector('main')?.appendChild(message);
 }
 
 function hideNoResultsMessage() {
@@ -345,6 +375,7 @@ function openRating() {
 }
 
 function closeModal() {
+  if (!ratingModal) return;
   ratingModal.classList.remove('active');
   ratingModal.classList.add('hidden');
   document.body.style.overflow = 'auto';
@@ -371,8 +402,8 @@ function resetRatingForm() {
 function submitRating(e) {
   e.preventDefault();
 
-  const name = document.getElementById('customerName').value;
-  const comment = document.getElementById('comment').value;
+  const name = document.getElementById('customerName')?.value;
+  const comment = document.getElementById('comment')?.value;
 
   if (!name || currentRating === 0) {
     alert('يرجى إدخال اسمك واختيار التقييم');
@@ -440,8 +471,8 @@ function toggleDeveloperInfo() {
   const dropdown = document.getElementById('developerDropdown');
   const arrow = document.getElementById('developerArrow');
 
-  dropdown.classList.toggle('open');
-  arrow.classList.toggle('rotated');
+  dropdown?.classList.toggle('open');
+  arrow?.classList.toggle('rotated');
 
   // Add haptic feedback on mobile
   if (navigator.vibrate) {
@@ -534,7 +565,10 @@ function setupImageLazyLoading() {
     // التحميل الافتراضي
     if (!img.hasAttribute('loading')) img.setAttribute('loading', 'lazy');
     img.setAttribute('decoding', 'async');
-    if ('fetchPriority' in img) img.fetchPriority = 'low';
+    // لا تخفّض أولوية صورة سبق تعيينها high
+    if ('fetchPriority' in img && img.fetchPriority !== 'high') {
+      img.fetchPriority = 'low';
+    }
 
     // fallback في حال فشل التحميل
     img.addEventListener('error', () => {
@@ -550,7 +584,6 @@ function setupImageLazyLoading() {
         if (isIntersecting) {
           // شجّع المتصفح على فك ترميز الصورة مبكرًا إن أمكن
           if (typeof target.decode === 'function') {
-            // نفّذ في أوقات الخمول لتجنب حظر الخيط
             if ('requestIdleCallback' in window) {
               requestIdleCallback(() => target.decode().catch(() => {}), { timeout: 500 });
             } else {
@@ -560,9 +593,9 @@ function setupImageLazyLoading() {
           observer.unobserve(target);
         }
       });
-    }, { 
-      rootMargin: isSlow ? '80px 0px' : '200px 0px', 
-      threshold: 0.01 
+    }, {
+      rootMargin: isSlow ? '80px 0px' : '200px 0px',
+      threshold: 0.01
     });
 
     images.forEach((img) => imageObserver.observe(img));
@@ -574,23 +607,23 @@ function handleKeyboardNavigation(e) {
   switch (e.key) {
     case 'Escape':
       // أغلق العناصر المفتوحة فقط
-      if (sidebar.classList.contains('open')) {
+      if (sidebar?.classList.contains('open')) {
         closeSidebarFunc();
       }
       if (ratingModal && !ratingModal.classList.contains('hidden')) {
         closeModal();
       }
-      if (!searchBar.classList.contains('hidden')) {
+      if (searchBar && !searchBar.classList.contains('hidden')) {
         toggleSearchBar();
       }
-      if (!categoriesDropdown.classList.contains('hidden')) {
+      if (categoriesDropdown && !categoriesDropdown.classList.contains('hidden')) {
         closeCategoriesDropdown();
       }
       break;
     case '/':
-      if (!searchBar.classList.contains('hidden')) {
+      if (searchBar && !searchBar.classList.contains('hidden')) {
         e.preventDefault();
-        searchInput.focus();
+        searchInput?.focus();
       }
       break;
   }
@@ -676,6 +709,9 @@ const throttledScroll = throttle(handleScroll, 100);
 
 // Add loading states
 function showLoading() {
+  // إن كان موجودًا مسبقًا لا تُنشئ آخر
+  if (document.getElementById('loader')) return;
+
   const loader = document.createElement('div');
   loader.id = 'loader';
   loader.innerHTML = `
