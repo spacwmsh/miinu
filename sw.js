@@ -1,723 +1,1510 @@
-<!DOCTYPE html>
-<html lang="ar">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>قائمة الطعام الإلكترونية - مطعم فاخر</title>
-    <meta name="description" content="قائمة طعام إلكترونية فاخرة تضم أشهى الأطباق من جميع الأصناف">
-    <meta name="theme-color" content="#667eea">
-    <link rel="manifest" href="manifest.json">
+/* Reset and Base Styles */
+* {
+    margin: 0;}
+ /* Enhanced visual improvements for restaurant */
+body {
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    margin: 0;
+    padding: 0;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+background-attachment: scroll; /* أو احذف السطر تمامًا */
+    min-height: 100vh;
+    direction: rtl;
+    overflow-x: hidden;
+    position: relative;
+}
 
-    <!-- CSS -->
-    <link rel="preload" href="style.css" as="style">
-    <link rel="stylesheet" href="style.css">
 
-    <!-- Icons / CDN Perf -->
-    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🍽️</text></svg>">
-    <link rel="dns-prefetch" href="//cdnjs.cloudflare.com">
-    <link rel="preconnect" href="https://cdnjs.cloudflare.com" crossorigin>
-    <link rel="preload" href="script.js" as="script">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+/* Animated background particles */
+body::before {
+    content: '';
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-image: 
+        radial-gradient(circle at 20% 80%, rgba(255, 255, 255, 0.1) 0%, transparent 50%),
+        radial-gradient(circle at 80% 20%, rgba(255, 255, 255, 0.1) 0%, transparent 50%),
+        radial-gradient(circle at 40% 40%, rgba(255, 255, 255, 0.05) 0%, transparent 50%);
+    animation: float 20s ease-in-out infinite;
+    pointer-events: none;
+    z-index: -1;
+}
 
-    <!-- Preload LCP image -->
-    <link rel="preload" as="image" href="images/breakfast2.jpg" fetchpriority="high">
-</head>
-<body>
-    <!-- Sidebar -->
-    <div id="sidebar" class="sidebar">
-        <div class="sidebar-header">
-            <h2>🍽️ طاولتك</h2>
-            <button id="closeSidebar" class="close-btn">&times;</button>
-        </div>
-        <div class="sidebar-content">
-            <div class="sidebar-item" onclick="closeSidebarAndGoHome()">
-                <i class="fas fa-home"></i>
-                <span>الصفحة الرئيسية</span>
-            </div>
-            <div class="sidebar-item" onclick="openRating()">
-                <i class="fas fa-star"></i>
-                <span>تقييمك</span>
-            </div>
-            <div class="sidebar-item" onclick="showWorkingHours()">
-                <i class="fas fa-clock"></i>
-                <span>أوقات العمل</span>
-            </div>
-            <div class="sidebar-item" onclick="showAboutUs()">
-                <i class="fas fa-info-circle"></i>
-                <span>نبذة عنا</span>
-            </div>
-            <div class="sidebar-item" onclick="openLocation()">
-                <i class="fas fa-map-marker-alt"></i>
-                <span>الموقع</span>
-            </div>
-            <div class="social-links">
-                <a href="https://facebook.com" target="_blank"><i class="fab fa-facebook"></i></a>
-                <a href="https://instagram.com" target="_blank"><i class="fab fa-instagram"></i></a>
-                <a href="https://wa.me/966500000000" target="_blank"><i class="fab fa-whatsapp"></i></a>
-            </div>
-            <div class="sidebar-item dropdown-item developer-info-small" onclick="toggleDeveloperInfo()">
-                <i class="fas fa-code"></i>
-                <span>المصمم</span>
-                <i class="fas fa-chevron-down dropdown-arrow" id="developerArrow"></i>
-            </div>
-            <div class="developer-dropdown" id="developerDropdown">
-                <div class="developer-info-detailed">
-                    <div class="developer-avatar">
-                        <i class="fas fa-user-circle"></i>
-                    </div>
-                    <h4>sabah_alloufi </h4>
-                    <p class="developer-title">مطور مواقع ومصمم UI/UX</p>
-                    <div class="developer-contact">
-                        <div class="contact-item">
-                            <i class="fas fa-phone"></i>
-                            <span>+966 50 123 4567</span>
-                        </div>
-                    </div>
-                    <div class="developer-social">
-                        <a href="https://wa.me/905374342451" target="_blank" class="social-btn whatsapp">
-                            <i class="fab fa-whatsapp"></i>
-                        </a>
-                        <a href="https://facebook.com/Sabah.alloufi.2001" target="_blank" class="social-btn linkedin">
-                            <i class="fab fa-facebook"></i>
-                        </a>
-                        <a href="https://instagram.com/sabah_alloufi/" target="_blank" class="social-btn github">
-                            <i class="fab fa-instagram"></i>
-                        </a>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
+@keyframes float {
+    0%, 100% { transform: translateY(0px) rotate(0deg); }
+    33% { transform: translateY(-20px) rotate(1deg); }
+    66% { transform: translateY(-10px) rotate(-1deg); }
+}
 
-    <!-- Overlay -->
-    <div id="overlay" class="overlay" onclick="closeSidebar()"></div>
+/* Enhanced header with glassmorphism */
+header {
+    background: rgba(255, 255, 255, 0.15);
+    backdrop-filter: blur(20px);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.2);
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    z-index: 2000;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+    transition: all 0.3s ease;
+}
 
-    <header>
-        <div class="header-top">
-            <button id="menuBtn" class="menu-btn">
-                <i class="fas fa-bars"></i>
-            </button>
-            <h1>🍽️ قائمة طعام المطعم الفاخر</h1>
-            <div class="header-actions">
-                <button id="searchBtn" class="search-btn">
-                    <i class="fas fa-search"></i>
-                </button>
-            </div>
-        </div>
-        
-        <!-- Search Bar -->
-        <div id="searchBar" class="search-bar hidden">
-            <input type="text" id="searchInput" placeholder="ابحث في القائمة...">
-            <button id="clearSearch" class="clear-search">&times;</button>
-        </div>
+/* Enhanced category cards with modern styling */
+.category {
+    margin-bottom: 4rem;
+    background: rgba(255, 255, 255, 0.98);
+    border-radius: 25px;
+    padding: 2.5rem;
+    box-shadow: 
+        0 20px 40px rgba(0, 0, 0, 0.1),
+        0 1px 0px rgba(255, 255, 255, 0.8) inset;
+    backdrop-filter: blur(20px);
+    border: 1px solid rgba(255, 255, 255, 0.3);
+    position: relative;
+    overflow: hidden;
+}
 
-        <!-- Categories Dropdown -->
-        <div id="categoriesDropdown" class="categories-dropdown hidden">
-            <div class="category-item" data-category="breakfast">
-                <span>🍳 الفطور الصباحي</span>
-                <span class="count">6</span>
-            </div>
-            <div class="category-item" data-category="hot-appetizers">
-                <span>🔥 المقبلات الساخنة</span>
-                <span class="count">6</span>
-            </div>
-            <div class="category-item" data-category="cold-appetizers">
-                <span>🧊 المقبلات الباردة</span>
-                <span class="count">6</span>
-            </div>
-            <div class="category-item" data-category="salads">
-                <span>🥗 السلطات</span>
-                <span class="count">6</span>
-            </div>
-            <div class="category-item" data-category="soups">
-                <span>🍲 الشوربات</span>
-                <span class="count">6</span>
-            </div>
-            <div class="category-item" data-category="eastern">
-                <span>🍛 الأطباق الشرقية</span>
-                <span class="count">6</span>
-            </div>
-            <div class="category-item" data-category="western">
-                <span>🍝 الأطباق الغربية</span>
-                <span class="count">6</span>
-            </div>
-            <div class="category-item" data-category="grills">
-                <span>🔥 المشاوي</span>
-                <span class="count">6</span>
-            </div>
-            <div class="category-item" data-category="seafood">
-                <span>🐟 المأكولات البحرية</span>
-                <span class="count">6</span>
-            </div>
-            <div class="category-item" data-category="pasta">
-                <span>🍝 الباستا</span>
-                <span class="count">6</span>
-            </div>
-            <div class="category-item" data-category="pizza">
-                <span>🍕 البيتزا</span>
-                <span class="count">6</span>
-            </div>
-            <div class="category-item" data-category="sandwiches">
-                <span>🥪 السندويتشات</span>
-                <span class="count">6</span>
-            </div>
-            <div class="category-item" data-category="kids-meals">
-                <span>👶 وجبات الأطفال</span>
-                <span class="count">6</span>
-            </div>
-            <div class="category-item" data-category="crepes">
-                <span>🥞 الكريب</span>
-                <span class="count">6</span>
-            </div>
-            <div class="category-item" data-category="waffles">
-                <span>🧇 الوافل</span>
-                <span class="count">6</span>
-            </div>
-            <div class="category-item" data-category="cakes">
-                <span>🍰 قطع الكيك</span>
-                <span class="count">6</span>
-            </div>
-            <div class="category-item" data-category="fruit-salads">
-                <span>🍓 سلطات الفواكه</span>
-                <span class="count">6</span>
-            </div>
-            <div class="category-item" data-category="hot-drinks">
-                <span>☕ المشروبات الساخنة</span>
-                <span class="count">6</span>
-            </div>
-            <div class="category-item" data-category="cold-drinks">
-                <span>🥤 المشروبات الباردة</span>
-                <span class="count">6</span>
-            </div>
-            <div class="category-item" data-category="sweets">
-                <span>🍰 الحلويات</span>
-                <span class="count">6</span>
-            </div>
-            <div class="category-item" data-category="shisha">
-                <span>🫖 الأركيلة</span>
-                <span class="count">6</span>
-            </div>
-        </div>
+.category::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 6px;
+    background: linear-gradient(90deg, #667eea, #764ba2, #f093fb, #f5576c);
+    background-size: 300% 100%;
+    animation: gradientShift 8s ease infinite;
+}
 
-        <!-- Breakfast Categories Dropdown -->
-        <div id="breakfastDropdown" class="breakfast-dropdown hidden">
-            <div class="breakfast-category-item" data-category="breakfast">
-                <span>🍳 فطور عربي تقليدي</span>
-            </div>
-            <div class="breakfast-category-item" data-category="breakfast">
-                <span>🥞 فطور صحي متكامل</span>
-            </div>
-            <div class="breakfast-category-item" data-category="breakfast">
-                <span>🧈 فطور شامي أصيل</span>
-            </div>
-            <div class="breakfast-category-item" data-category="breakfast">
-                <span>🍳 بيض مقلي بالطماطم</span>
-            </div>
-            <div class="breakfast-category-item" data-category="breakfast">
-                <span>🫘 فول مدمس بالطحينة</span>
-            </div>
-            <div class="breakfast-category-item" data-category="breakfast">
-                <span>🫓 منقوشة زعتر وجبن</span>
-            </div>
-        </div>
+@keyframes gradientShift {
+    0%, 100% { background-position: 0% 50%; }
+    50% { background-position: 100% 50%; }
+}
 
-        <nav>
-            <ul>
-                <li>
-                    <button id="categoriesBtn" class="categories-btn" onclick="toggleCategoriesDropdown()">
-                        <i class="fas fa-list"></i>
-                        <span>الأصناف</span>
-                    </button>
-                </li>
-                <li><a href="#breakfast">🍳 الفطور</a></li>
-                <li><a href="#hot-appetizers">🔥 مقبلات</a></li>
-                <li><a href="#salads">🥗 السلطات</a></li>
-                <li><a href="#eastern">🍛 شرقية</a></li>
-                <li><a href="#western">🍝 غربية</a></li>
-                <li><a href="#grills">🔥 المشاوي</a></li>
-                <li><a href="#seafood">🐟 بحرية</a></li>
-                <li><a href="#sandwiches">🥪 سندويتشات</a></li>
-                <li><a href="#crepes">🥞 الحلويات</a></li>
-                <li><a href="#fruit-salads">🍓 سلطات فواكه</a></li>
-                <li><a href="#hot-drinks">☕ مشروبات </a></li>
-            </ul>
-        </nav>
-    </header>
+/* Enhanced menu item cards */
+.menu-item {
+    background: white;
+    border-radius: 20px;
+    overflow: hidden;
+    box-shadow: 
+        0 10px 30px rgba(0, 0, 0, 0.1),
+        0 1px 0px rgba(255, 255, 255, 0.9) inset;
+    transition: all 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+    border: 1px solid rgba(102, 126, 234, 0.1);
+    position: relative;
+    transform-style: preserve-3d;
+}
 
-    <main>
-        <!-- Breakfast Section -->
-        <section id="breakfast" class="category">
-            <h2>🍳 الفطور الصباحي</h2>
-            <div class="items-grid">
-                <div class="menu-item">
-                    <!-- LCP image: eager + high priority -->
-                    <img loading="eager" decoding="async" fetchpriority="high" src="images/breakfast2.jpg" alt="فطور عربي تقليدي">
-                    <h3>فطور عربي تقليدي</h3>
-                    <p>فطور شامل يضم الحمص والفول والجبن والزيتون والخضار الطازجة مع الخبز العربي</p>
-                    <span class="price">7 $</span>
-                </div>
-                <div class="menu-item">
-                    <img loading="lazy" decoding="async" src="images/Olives_Plate.png" alt="فطور صحي">
-                    <h3>  زيتون اخضر /اسود </h3>
-                    <p>وجبة فطور صحية       </p>
-                    <span class="price">2 $</span>
-                </div>
-                <div class="menu-item">
-                    <img loading="lazy" decoding="async" src="images/Falafel.jpg" alt="فطور شامي">
-                    <h3>فلافل   </h3>
-                    <p>وجبة فطور صحية       </p>
-                    <span class="price">3 $</span>
-                </div>
-                <div class="menu-item">
-                    <img loading="lazy" decoding="async" src="images/Hummus_with_Tahini.jpg" alt="فول مدمس">
-                    <h3>  حمص مطحون</h3>
-                    <p>وجبة فطور صحية       </p>
-                    <span class="price">1.5 $</span>
-                </div>
-            </div>
-        </section>
+.menu-item::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 4px;
+    background: linear-gradient(45deg, #667eea, #764ba2);
+    transform: scaleX(0);
+    transition: transform 0.3s ease;
+    z-index: 1;
+}
 
-        <!-- Hot Appetizers Section -->
-        <section id="hot-appetizers" class="category">
-            <h2>🔥 المقبلات </h2>
-            <div class="items-grid">
-                <div class="menu-item">
-                    <img loading="lazy" decoding="async" src="images/Eggplant_Mutabbal.jpg" alt="متبل  ">
-                    <h3>متبل باذنجان   </h3>
-                    <p>وجبة         </p>
-                    <span class="price">1 $</span>
-                </div>
-                <div class="menu-item">
-                    <img loading="lazy" decoding="async" src="images/Hummus_with_Tahini.jpg" alt="حمص مطحون">
-                    <h3>حمص مطحون  </h3>
-                    <p>وجبة         </p>
-                    <span class="price">1.5 $</span>
-                </div>
-                <div class="menu-item">
-                    <img loading="lazy" decoding="async" src="images/soup1.jpg" alt="شوربة ">
-                    <h3>شوربة </h3>
-                    <p>وجبة         </p>
-                    <span class="price">1 $</span>
-                </div>
-            </div>
-        </section>
+.menu-item:hover::before {
+    transform: scaleX(1);
+}
 
-        <!-- Salads Section -->
-        <section id="salads" class="category">
-            <h2>🥗 السلطات</h2>
-            <div class="items-grid">
-                <div class="menu-item">
-                    <img loading="lazy" decoding="async" src="images/salad1.jpg" alt="سلطة عربية">
-                    <h3>سلطة عربية مشكلة</h3>
-                    <p>خليط من الخس والطماطم والخيار والبصل مع زيت الزيتون والليمون</p>
-                    <span class="price">18 $</span>
-                </div>
-                <div class="menu-item">
-                    <img loading="lazy" decoding="async" src="images/salad2.jpg" alt="تبولة">
-                    <h3>تبولة لبنانية</h3>
-                    <p>سلطة البقدونس التقليدية مع الطماطم والبرغل والنعناع والليمون</p>
-                    <span class="price">22 $</span>
-                </div>
-                <div class="menu-item">
-                    <img loading="lazy" decoding="async" src="images/Fattoush_Salad.jpg" alt="فتوش">
-                    <h3>فتوش شامي</h3>
-                    <p>سلطة الخضار المشكلة مع قطع الخبز المحمص والسماق ودبس الرمان</p>
-                    <span class="price">20 $</span>
-                </div>
-                <div class="menu-item">
-                    <img loading="lazy" decoding="async" src="images/Caesar_Salad.jpg" alt="سلطة يونانية">
-                    <h3>سلطة يونانية</h3>
-                    <p>خضار طازجة مع جبن الفيتا والزيتون الأسود وزيت الزيتون</p>
-                    <span class="price">25 $</span>
-                </div>
-            </div>
-        </section>
+.menu-item:hover {
+    transform: translateY(-15px) rotateX(5deg) rotateY(5deg);
+    box-shadow: 
+        0 25px 50px rgba(102, 126, 234, 0.25),
+        0 10px 20px rgba(0, 0, 0, 0.1);
+}
 
-        <!-- Eastern Dishes Section -->
-        <section id="eastern" class="category">
-            <h2>🍛 الأطباق الشرقية الأصيلة</h2>
-            <div class="items-grid">
-                <div class="menu-item">
-                    <img loading="lazy" decoding="async" src="images/Lamb_Mandi.png" alt="مندي لحم">
-                    <h3>مندي اللحم الأصيل</h3>
-                    <p>لحم ضأن طري مطبوخ على الطريقة اليمنية مع الأرز البسمتي والبهارات</p>
-                    <span class="price">14 $</span>
-                </div>
-                <div class="menu-item">
-                    <img loading="lazy" decoding="async" src="images/Chicken_Kabsa.png" alt="كبسة دجاج">
-                    <h3>كبسة الدجاج الملكية</h3>
-                    <p>دجاج مشوي مع الأرز المبهر والخضار، على الطريقة السعودية الأصيلة</p>
-                    <span class="price">9 $</span>
-                </div>
-                <div class="menu-item">
-                    <img loading="lazy" decoding="async" src="images/Mansaf.png" alt="منسف">
-                    <h3>منسف أردني أصيل</h3>
-                    <p>لحم ضأن مطبوخ باللبن الجميد مع الأرز، يُقدم على الطريقة الأردنية</p>
-                    <span class="price">16 $</span>
-                </div>
-                <div class="menu-item">
-                    <img loading="lazy" decoding="async" src="images/Chicken_Biryani.png" alt="برياني">
-                    <h3>برياني بالدجاج</h3>
-                    <p>  طازجة مع قطع الدجاج والأرز الأبيض</p>
-                    <span class="price">9.5 $</span>
-                </div>
-                <div class="menu-item">
-                    <img loading="lazy" decoding="async" src="images/Stuffed_Chicken_with_Rice.jpg" alt="دجاج محشي  ">
-                    <h3>دجاج  محشي</h3>
-                    <p>قطع الخبز  مع  واللبن  والصنوبر</p>
-                    <span class="price">8 $</span>
-                </div>
-            </div>
-        </section>
+/* Enhanced price styling */
+.menu-item .price {
+    display: block;
+    margin: 1rem;
+    font-size: 1.4rem;
+    font-weight: 800;
+    text-align: center;
+    background: linear-gradient(45deg, #667eea, #764ba2, #f093fb);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    position: relative;
+    padding: 0.5rem;
+    border-radius: 10px;
+    background-color: rgba(102, 126, 234, 0.05);
+}
 
-        <!-- Western Dishes Section -->
-        <section id="western" class="category">
-            <h2>🍝 الأطباق الغربية </h2>
-            <div class="items-grid">
-                <div class="menu-item">
-                    <img loading="lazy" decoding="async" src="images/hot1.jpg" alt=" دجاج مقلي">
-                    <h3>دجاج مقلي سبايسي   </h3>
-                    <p>سبايسي   حسب الطلب مع البطاطس والخضار </p>
-                    <span class="price">7 $</span>
-                </div>
-                <div class="menu-item">
-                    <img loading="lazy" decoding="async" src="images/Chicken_Burger.png" alt="برغر ">
-                    <h3>برجر دجاج   </h3>
-                    <p>برجر  طازج مع الجبن والخضار والبطاطس المقلية</p>
-                    <span class="price">8 $</span>
-                </div>
-                <div class="menu-item">
-                    <img loading="lazy" decoding="async" src="images/Club_Sandwich.png" alt="سابا ">
-                    <h3>سابايا   </h3>
-                    <p>سابيا  طازج مع الجبن والخضار والبطاطس المقلية</p>
-                    <span class="price">4 $</span>
-                </div>
-                <div class="menu-item">
-                    <img loading="lazy" decoding="async" src="images/Beef_Burger.jpg" alt="برغر ">
-                    <h3>برجر اللحم الفاخر</h3>
-                    <p>برجر  طازج مع الجبن والخضار والبطاطس المقلية</p>
-                    <span class="price">11 $</span>
-                </div>
-                <div class="menu-item">
-                    <img loading="lazy" decoding="async" src="images/Double_Cheeseburger.png" alt="برغر ">
-                    <h3>برجر اللحم مع الجبن </h3>
-                    <p>برجر  طازج مع الجبن والخضار والبطاطس المقلية</p>
-                    <span class="price">12 $</span>
-                </div>
-            </div>
-        </section>
+.menu-item .price::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: linear-gradient(45deg, rgba(102, 126, 234, 0.1), rgba(118, 75, 162, 0.1));
+    border-radius: 10px;
+    z-index: -1;
+}
 
-        <!-- Grills Section -->
-        <section id="grills" class="category">
-            <h2>🔥 المشاوي</h2>
-            <div class="items-grid">
-                <div class="menu-item">
-                    <img loading="lazy" decoding="async" src="images/Mixed_Grill.jpg" alt=" مشاوي">
-                    <h3>مشكل المشاوي الفاخر</h3>
-                    <p>تشكيلة من الكباب والكفتة والشيش طاووق مع الأرز والسلطة</p>
-                    <span class="price">17 $</span>
-                </div>
-                <div class="menu-item">
-                    <img loading="lazy" decoding="async" src="images/grill2.jpg" alt=" مشاوي">
-                    <h3>كباب اللحم المتبل</h3>
-                    <p>أسياخ كباب لحم طرية متبلة بالبهارات الشرقية ومشوية على الفحم</p>
-                    <span class="price">14 $</span>
-                </div>
-                <div class="menu-item">
-                    <img loading="lazy" decoding="async" src="images/Shish_Tawook.png" alt=" مشاوي">
-                    <h3>شيش طاووق مشوي</h3>
-                    <p>قطع دجاج طرية متبلة بالثوم والليمون ومشوية على الفحم</p>
-                    <span class="price">11 $</span>
-                </div>
-                <div class="menu-item">
-                    <img loading="lazy" decoding="async" src="images/meat1.jpg" alt=" مشاوي">
-                    <h3>كفتة مشوية بالبقدونس</h3>
-                    <p>كفتة لحم طازجة مخلوطة بالبقدونس والبصل ومشوية على الفحم</p>
-                    <span class="price">18 $</span>
-                </div>
-                <div class="menu-item">
-                    <img loading="lazy" decoding="async" src="images/Lamb_Chops.png" alt=" مشاوي">
-                    <h3>ضلوع الغنم المشوية</h3>
-                    <p>ضلوع غنم طرية متبلة ومشوية ببطء على الفحم حتى النضج</p>
-                    <span class="price">16 $</span>
-                </div>
-                <div class="menu-item">
-                    <img loading="lazy" decoding="async" src="images/grill2.jpg" alt=" مشاوي">
-                    <h3>نصف دجاج مشوي</h3>
-                    <p>نصف دجاج طازج متبل ومشوي على الفحم مع الثوم والليمون</p>
-                    <span class="price">12 $</span>
-                </div>
-            </div>
-        </section>
+/* Enhanced sidebar with modern styling */
+.sidebar {
+    position: fixed;
+    top: 0;
+    right: -350px;
+    width: 350px;
+    height: 100vh;
+    background: rgba(255, 255, 255, 0.95);
+    backdrop-filter: blur(20px);
+    box-shadow: -10px 0 30px rgba(0, 0, 0, 0.2);
+    transition: all 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+    z-index: 2500;
+    border-left: 1px solid rgba(255, 255, 255, 0.3);
+}
 
-        <!-- Seafood Section -->
-        <section id="seafood" class="category">
-            <h2>🐟 المأكولات البحرية</h2>
-            <div class="items-grid">
-                <div class="menu-item">
-                    <img loading="lazy" decoding="async" src="images/Grilled_Salmon.png" alt="سمك مشوي">
-                    <h3>سمك هامور مشوي</h3>
-                    <p>سمك هامور طازج مشوي مع الخضار والأرز الأبيض وصوص الليمون</p>
-                    <span class="price">85 $</span>
-                </div>
-                <div class="menu-item">
-                    <img loading="lazy" decoding="async" src="images/Grilled_Fish.png" alt="سلمون مشوي">
-                    <h3>سلمون مشوي بالأعشاب</h3>
-                    <p>فيليه سلمون نرويجي مشوي مع الأعشاب الطازجة وصوص الكابر</p>
-                    <span class="price">95 $</span>
-                </div>
-                <div class="menu-item">
-                    <img loading="lazy" decoding="async" src="images/seafood1.jpg" alt="سمك فيليه">
-                    <h3>فيليه السمك المقلي</h3>
-                    <p>فيليه سمك طازج مقلي مع البقسماط والبطاطس المقلية</p>
-                    <span class="price">70 $</span>
-                </div>
-                <div class="menu-item">
-                    <img loading="lazy" decoding="async" src="images/seafood2.jpg" alt="مأكولات بحرية">
-                    <h3>طبق المأكولات البحرية</h3>
-                    <p>تشكيلة من الجمبري والحبار والسمك مع الأرز والخضار</p>
-                    <span class="price">110 $</span>
-                </div>
-            </div>
-        </section>
+/* Enhanced buttons with modern styling */
+.categories-btn, .search-btn, .menu-btn {
+    background: rgba(255, 255, 255, 0.2);
+    backdrop-filter: blur(10px);
+    border: 1px solid rgba(255, 255, 255, 0.3);
+    color: black;
+    padding: 0.8rem 1.2rem;
+    border-radius: 15px;
+    font-size: 0.9rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    position: relative;
+    overflow: hidden;
+}
 
-        <!-- Sandwiches Section -->
-        <section id="sandwiches" class="category">
-            <h2>🥪 السندويتشات</h2>
-            <div class="items-grid">
-                <div class="menu-item">
-                    <img loading="lazy" decoding="async" src="images/sandwich1.jpg" alt="شاورما لحم">
-                    <h3>شاورما اللحم</h3>
-                    <p>شاورما لحم طازجة مع الخضار والطحينة والثوم في خبز عربي</p>
-                    <span class="price">7 $</span>
-                </div>
-                <div class="menu-item">
-                    <img loading="lazy" decoding="async" src="images/Chicken_Shawarma.png" alt="شاورما دجاج">
-                    <h3>شاورما الدجاج</h3>
-                    <p>شاورما دجاج مشوية مع الخضار والثوم والمايونيز في خبز طازج</p>
-                    <span class="price">5 $</span>
-                </div>
-                <div class="menu-item">
-                    <img loading="lazy" decoding="async" src="images/Club_Sandwich.jpg" alt="تونة">
-                    <h3>سندويتش التونة</h3>
-                    <p>تونة طازجة مع الخضار والمايونيز في خبز التوست المحمص</p>
-                    <span class="price">20 $</span>
-                </div>
-            </div>
-        </section>
+.categories-btn::before, .search-btn::before, .menu-btn::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: -100%;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
+    transition: left 0.5s ease;
+}
 
-        <!-- Crepes Section -->
-        <section id="crepes" class="category">
-            <h2>🥞 الحلويات</h2>
-            <div class="items-grid">
-                <div class="menu-item">
-                    <img loading="lazy" decoding="async" src="images/crepe1.jpg" alt="كريب نوتيلا">
-                    <h3>كريب النوتيلا والفراولة</h3>
-                    <p>كريب رقيق محشو بالنوتيلا وقطع الفراولة الطازجة مع السكر البودرة</p>
-                    <span class="price">3 $</span>
-                </div>
-                <div class="menu-item">
-                    <img loading="lazy" decoding="async" src="images/western3.jpg" alt="كريب موز">
-                    <h3>كريب الموز والعسل</h3>
-                    <p>كريب محشو بشرائح الموز الطازج والعسل الطبيعي</p>
-                    <span class="price">3.5 $</span>
-                </div>
-                <div class="menu-item">
-                    <img loading="lazy" decoding="async" src="images/Basbousa_with_Cream.jpg" alt="كريب شوكولاتة">
-                    <h3> الشوكولاتة البيضاء</h3>
-                    <p>كريب محشو بالشوكولاتة البيضاء والمكسرات المجروشة</p>
-                    <span class="price">3 $</span>
-                </div>
-                <div class="menu-item">
-                    <img loading="lazy" decoding="async" src="images/cake1.jpg" alt="كيك شوكولاتة">
-                    <h3>كيك الشوكولاتة الفاخر</h3>
-                    <p>قطعة كيك شوكولاتة غنية مع طبقات الكريمة والفواكه الطازجة</p>
-                    <span class="price">2 $</span>
-                </div>
-                <div class="menu-item">
-                    <img loading="lazy" decoding="async" src="images/Cheesecake.png" alt="تشيز كيك">
-                    <h3>تشيز كيك بالفراولة</h3>
-                    <p>قطعة تشيز كيك كريمية مع صوص الفراولة الطازج</p>
-                    <span class="price">2 $</span>
-                </div>
-                <div class="menu-item">
-                    <img loading="lazy" decoding="async" src="images/Basbousa.png" alt="نابلسيا">
-                    <h3>نابلسيا مع بزظا   </h3>
-                    <p>قطعة  فانيليا طرية مع كريمة الزبدة </p>
-                    <span class="price">3 $</span>
-                </div>
-                <div class="menu-item">
-                    <img loading="lazy" decoding="async" src="images/Basbousa_with_Cream.jpg" alt="كيك جزر">
-                    <h3>كيك  بالمكسرات</h3>
-                    <p>قطعة كيك جزر صحية مع المكسرات وكريمة الجبن</p>
-                    <span class="price">3 $</span>
-                </div>
-                <div class="menu-item">
-                    <img loading="lazy" decoding="async" src="images/arabic_sweets1.jpg" alt="حلويات  ">
-                    <h3>حلويات مشك   </h3>
-                    <p>قطعة كيك ليمون خفيفة مع كريمة الليمون الطازجة</p>
-                    <span class="price">19 $</span>
-                </div>
-            </div>
-        </section>
+.categories-btn:hover::before, .search-btn:hover::before, .menu-btn:hover::before {
+    left: 100%;
+}
 
-        <!-- Fruit Salads Section -->
-        <section id="fruit-salads" class="category">
-            <h2>🍓 سلطات الفواكه</h2>
-            <div class="items-grid">
-                <div class="menu-item">
-                    <img loading="lazy" decoding="async" src="images/fruit1.jpg" alt="سلطة فواكه مشكلة">
-                    <h3>سلطة الفواكه المشكلة</h3>
-                    <p>خليط من الفواكه الطازجة الموسمية مع النعناع والعسل</p>
-                    <span class="price">3 $</span>
-                </div>
-                <div class="menu-item">
-                    <img loading="lazy" decoding="async" src="images/fruit1.jpg" alt="سلطة استوائية">
-                    <h3>سلطة الفواكه الاستوائية</h3>
-                    <p>مانجو وأناناس وكيوي مع جوز الهند المبشور</p>
-                    <span class="price">6 $</span>
-                </div>
-                <div class="menu-item">
-                    <img loading="lazy" decoding="async" src="images/Fruit_Cocktail.jpg" alt="سلطة توت">
-                    <h3>سلطة التوت المشكل</h3>
-                    <p>فراولة وتوت أزرق وتوت أحمر مع الكريمة المخفوقة</p>
-                    <span class="price">4 $</span>
-                </div>
-            </div>
-        </section>
+.categories-btn:hover, .search-btn:hover, .menu-btn:hover {
+    background: rgba(255, 255, 255, 0.3);
+    transform: translateY(-2px);
+    box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15);
+}
 
-        <!-- Pizza Section -->
-        <section id="pizza" class="category">
-            <h2>🍕 المعجنات و البيتزا </h2>
-            <div class="items-grid">
-                <div class="menu-item">
-                    <img loading="lazy" decoding="async" src="images/margherita1.jpg" alt="بيتزا مارجريتا">
-                    <h3>بيتزا مارجريتا الكلاسيكية</h3>
-                    <p>بيتزا إيطالية أصيلة مع صوص الطماطم وجبن الموزاريلا الطازج وأوراق الريحان</p>
-                    <span class="price">6 $</span>
-                </div>
-                <div class="menu-item">
-                    <img loading="lazy" decoding="async" src="images/pepperoni1.jpg" alt="بيتزا بيبروني">
-                    <h3>بيتزا البيبروني الحارة</h3>
-                    <p>بيتزا مع شرائح البيبروني الحار وجبن الموزاريلا على عجينة رقيقة مقرمشة</p>
-                    <span class="price">6 $</span>
-                </div>
-                <div class="menu-item">
-                    <img loading="lazy" decoding="async" src="images/vegetarian1.jpg" alt="بيتزا نباتية">
-                    <h3>بيتزا الخضار الطازجة</h3>
-                    <p>بيتزا نباتية مع الفلفل الملون والطماطم والزيتون والفطر الطازج</p>
-                    <span class="price">7 $</span>
-                </div>
-                <div class="menu-item">
-                    <img loading="lazy" decoding="async" src="images/Pizza_Margherita.png" alt="بيتزا أربعة أجبان">
-                    <h3>بيتزا الأجبان الأربعة</h3>
-                    <p>خليط من أربعة أنواع جبن: موزاريلا، بارميزان، جورجونزولا، وريكوتا</p>
-                    <span class="price">6.5 $</span>
-                </div>
-                <div class="menu-item">
-                    <img loading="lazy" decoding="async" src="images/Cheese_Manakish.png" alt="زعتر  ">
-                    <h3>منقوشة زعتر   </h3>
-                    <p>عجينة عربية بزعتر الفاخر         </p>
-                    <span class="price">2 $</span>
-                </div>
-                <div class="menu-item">
-                    <img loading="lazy" decoding="async" src="images/Garlic_Bread.png" alt="جبنة   ">
-                    <h3>منقوشة جبنة   </h3>
-                    <p>عجينة عربية بزعتر الفاخر         </p>
-                    <span class="price">2 $</span>
-                </div>
-                <div class="menu-item">
-                    <img loading="lazy" decoding="async" src="images/Spinach_Fatayer.png" alt="جبنة   ">
-                    <h3> سمبوسك   </h3>
-                    <p>عجينة عربية  الفاخر         </p>
-                    <span class="price">4 $</span>
-                </div>
-            </div>
-        </section>
+/* Enhanced navigation with modern styling */
+nav ul {
+    display: flex;
+    list-style: none;
+    margin: 0;
+    padding: 1rem;
+    gap: 0.5rem;
+    overflow-x: auto;
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+}
 
-        <!-- Hot Drinks Section -->
-        <section id="hot-drinks" class="category">
-            <h2>☕ المشروبات </h2>
-            <div class="items-grid">
-                <div class="menu-item">
-                    <img loading="lazy" decoding="async" src="images/orange1.jpg" alt=" ">
-                    <h3>عصير البرتقال الطازج</h3>
-                    <p>عصير برتقال طبيعي 100% معصور طازجاً، غني بفيتامين سي</p>
-                    <span class="price">4 $</span>
-                </div>
-                <div class="menu-item">
-                    <img loading="lazy" decoding="async" src="images/Lemon_Mint_Juice.png" alt=" ">
-                    <h3>عصير ليمون بالنعناع</h3>
-                    <p>عصير ليمون طازج مع النعناع والثلج، مشروب منعش ومثالي للأجواء الحارة</p>
-                    <span class="price">15 $</span>
-                </div>
-                <div class="menu-item">
-                    <img loading="lazy" decoding="async" src="images/drink1.jpg" alt=" ">
-                    <h3>سموثي الفواكه المشكلة</h3>
-                    <p>خليط منعش من المانجو والفراولة والموز مع الحليب وقطع الثلج</p>
-                    <span class="price">30 $</span>
-                </div>
-                <div class="menu-item">
-                    <img loading="lazy" decoding="async" src="images/Arabic_Coffee.png" alt=" ">
-                    <h3>قهوة عربية أصيلة</h3>
-                    <p>قهوة عربية محمصة طازجة مع الهيل والزعفران، تُقدم مع التمر</p>
-                    <span class="price">15 $</span>
-                </div>
-                <div class="menu-item">
-                    <img loading="lazy" decoding="async" src="images/Turkish_Tea.png" alt=" ">
-                    <h3>شاي أحمر بالنعناع</h3>
-                    <p>شاي أحمر قوي مع أوراق النعناع الطازج والسكر</p>
-                    <span class="price">10 $</span>
-                </div>
-                <div class="menu-item">
-                    <img loading="lazy" decoding="async" src="images/Cappuccino.png" alt=" ">
-                    <h3>كابتشينو إيطالي</h3>
-                    <p>قهوة إسبريسو مع الحليب المبخر ورغوة الحليب الكريمية</p>
-                    <span class="price">18 $</span>
-                </div>
-            </div>
-        </section>
-    </main>
+nav ul::-webkit-scrollbar {
+    display: none;
+}
 
-    <!-- Rating Modal -->
-    <div id="ratingModal" class="modal hidden">
-        <div class="modal-content">
-            <h3>تقييم الخدمة</h3>
-            <form id="ratingForm">
-                <input type="text" id="customerName" placeholder="اسمك" required>
-                <div class="stars">
-                    <span class="star" data-rating="1">⭐</span>
-                    <span class="star" data-rating="2">⭐</span>
-                    <span class="star" data-rating="3">⭐</span>
-                    <span class="star" data-rating="4">⭐</span>
-                    <span class="star" data-rating="5">⭐</span>
-                </div>
-                <textarea id="comment" placeholder="تعليقك (اختياري)"></textarea>
-                <button type="submit">إرسال التقييم</button>
-                <button type="button" onclick="closeModal()">إلغاء</button>
-            </form>
-        </div>
-    </div>
+nav li a, nav li button {
+    display: block;
+    padding: 0.8rem 1.2rem;
+    text-decoration: none;
+    color: black;
+    background: rgba(255, 255, 255, 0.15);
+    backdrop-filter: blur(10px);
+    border-radius: 20px;
+    font-size: 0.85rem;
+    font-weight: 600;
+    white-space: nowrap;
+    transition: background 0.3s, color 0.3s, box-shadow 0.3s, transform 0.3s;
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    cursor: pointer;
+    position: relative;
+    overflow: hidden;
+}
 
-    <footer>
-        <p>&copy; 2025 قائمة طعام المطعم الفاخر. جميع الحقوق محفوظة. | تصميم حديث وأنيق لتجربة طعام لا تُنسى</p>
-    </footer>
+nav li a:hover, nav li button:hover,
+nav li a.active, nav li button.active {
+    background: linear-gradient(45deg, #667eea, #764ba2);
+    color: black !important;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 15px rgba(102, 126, 234, 0.3);
+}
 
-    <!-- Scripts -->
-    <script src="script.js"></script>
-    <script>
-        // Service Worker: اجعل المسار نسبيًا لتفادي 404 عند النشر داخل مجلد فرعي
-        if ('serviceWorker' in navigator) {
-            window.addEventListener('load', function () {
-                navigator.serviceWorker.register('sw.js')
-                    .then(function (registration) {
-                        console.log('ServiceWorker registration successful with scope: ', registration.scope);
-                    }, function (err) {
-                        console.log('ServiceWorker registration failed: ', err);
-                    });
-            });
-        }
-        // لا حاجة لسكربت lazy إضافي — نعتمد على التحميل الكسول المدمج عبر loading="lazy"
-    </script>
-</body>
-</html>
+/* Enhanced footer */
+footer {
+    background: rgba(255, 255, 255, 0.1);
+    backdrop-filter: blur(20px);
+    color: white;
+    text-align: center;
+    padding: 2rem;
+    margin-top: 4rem;
+    border-top: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+/* Smooth scrolling */
+html {
+    scroll-behavior: smooth;
+}
+
+/* Enhanced loading animations */
+@keyframes shimmer {
+    0% { background-position: -200% 0; }
+    100% { background-position: 200% 0; }
+}
+
+.loading {
+    background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+    background-size: 200% 100%;
+    animation: shimmer 1.5s infinite;
+}
+
+/* Header Styles */
+header {
+    background: rgba(255, 255, 255, 0.95);
+    backdrop-filter: blur(10px);
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    z-index: 1000;
+    border-bottom: 3px solid #667eea;
+}
+
+.header-top {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 1rem 1.5rem;
+    background: linear-gradient(45deg, #667eea, #764ba2);
+    color: white;
+}
+
+.menu-btn {
+    background: rgba(255, 255, 255, 0.2);
+    border: 2px solid rgba(255, 255, 255, 0.3);
+    color: black;
+    padding: 0.8rem;
+    border-radius: 12px;
+    cursor: pointer;
+    font-size: 1.2rem;
+    transition: all 0.3s ease;
+    backdrop-filter: blur(10px);
+}
+
+.menu-btn:hover {
+    background: rgba(255, 255, 255, 0.3);
+    transform: scale(1.05);
+}
+
+header h1 {
+    font-size: 1.5rem;
+    font-weight: 700;
+    text-align: center;
+    flex: 1;
+    margin: 0 1rem;
+    text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.3);
+    color: white !important;
+    z-index: 1001;
+}
+
+.header-actions {
+    display: flex;
+    gap: 0.5rem;
+}
+
+.categories-btn, .search-btn {
+    background: rgba(255, 255, 255, 0.2);
+    border: 2px solid rgba(255, 255, 255, 0.3);
+    color: black;
+    padding: 0.8rem;
+    border-radius: 12px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    backdrop-filter: blur(10px);
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: 0.9rem;
+}
+
+.categories-btn:hover, .search-btn:hover {
+    background: rgba(255, 255, 255, 0.3);
+    transform: scale(1.05);
+}
+
+/* Search Bar */
+.search-bar {
+    padding: 1rem 1.5rem;
+    background: rgba(255, 255, 255, 0.98);
+    border-bottom: 1px solid #eee;
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    transition: all 0.3s ease;
+}
+
+.search-bar.hidden {
+    max-height: 0;
+    padding: 0 1.5rem;
+    overflow: hidden;
+}
+
+#searchInput {
+    flex: 1;
+    padding: 0.8rem 1rem;
+    border: 2px solid #ddd;
+    border-radius: 25px;
+    font-size: 1rem;
+    outline: none;
+    transition: all 0.3s ease;
+}
+
+#searchInput:focus {
+    border-color: #667eea;
+    box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+}
+
+.clear-search {
+    background: #ff6b6b;
+    color: white;
+    border: none;
+    width: 35px;
+    height: 35px;
+    border-radius: 50%;
+    cursor: pointer;
+    font-size: 1.2rem;
+    transition: all 0.3s ease;
+}
+
+.clear-search:hover {
+    background: #ff5252;
+    transform: scale(1.1);
+}
+
+/* Categories Dropdown */
+.categories-dropdown {
+    background: white;
+    border-bottom: 1px solid #eee;
+    max-height: 300px;
+    overflow-y: auto;
+    transition: all 0.3s ease;
+}
+
+.categories-dropdown.hidden {
+    max-height: 0;
+    overflow: hidden;
+}
+
+.category-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 1rem 1.5rem;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    border-bottom: 1px solid #f5f5f5;
+    color: black;
+}
+
+.category-item:hover {
+    background: linear-gradient(45deg, #667eea, #764ba2);
+    color: black;
+    transform: translateX(-5px);
+}
+
+.category-item .count {
+    background: #667eea;
+    color: white;
+    padding: 0.3rem 0.8rem;
+    border-radius: 15px;
+    font-size: 0.8rem;
+    font-weight: bold;
+}
+
+.category-item:hover .count {
+    background: rgba(255, 255, 255, 0.3);
+}
+
+/* Navigation */
+nav {
+    background: rgba(255, 255, 255, 0.98);
+    padding: 0.5rem 0;
+    border-bottom: 1px solid #eee;
+}
+
+nav ul {
+    display: flex;
+    list-style: none;
+    overflow-x: auto;
+    padding: 0 1rem;
+    gap: 0.5rem;
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+}
+
+nav ul::-webkit-scrollbar {
+    display: none;
+}
+
+nav li {
+    flex-shrink: 0;
+    position: relative;
+    display: flex;
+    align-items: center;
+}
+
+.category-menu-btn {
+    background: rgba(102, 126, 234, 0.2);
+    border: 1px solid rgba(102, 126, 234, 0.3);
+    color: #667eea;
+    padding: 0.4rem;
+    border-radius: 50%;
+    cursor: pointer;
+    font-size: 0.8rem;
+    transition: all 0.3s ease;
+    margin-left: 0.5rem;
+    width: 30px;
+    height: 30px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.category-menu-btn:hover {
+    background: rgba(102, 126, 234, 0.3);
+    transform: scale(1.1);
+}
+
+/* Breakfast Dropdown */
+.breakfast-dropdown {
+    background: white;
+    border-bottom: 1px solid #eee;
+    max-height: 200px;
+    overflow-y: auto;
+    transition: all 0.3s ease;
+    position: absolute;
+    top: 100%;
+    left: 0;
+    right: 0;
+    z-index: 1001;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+}
+
+.breakfast-dropdown.hidden {
+    max-height: 0;
+    overflow: hidden;
+}
+
+.breakfast-category-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0.8rem 1.5rem;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    border-bottom: 1px solid #f5f5f5;
+}
+
+.breakfast-category-item:hover {
+    background: linear-gradient(45deg, #667eea, #764ba2);
+    color: white;
+    transform: translateX(-5px);
+}
+
+nav a {
+    display: block;
+    padding: 0.8rem 1.2rem;
+    text-decoration: none;
+    color: #333;
+    background: linear-gradient(45deg, #f8f9fa, #e9ecef);
+    border-radius: 25px;
+    font-weight: 600;
+    transition: all 0.3s ease;
+    white-space: nowrap;
+    border: 2px solid transparent;
+    font-size: 0.9rem;
+}
+
+.info-btn {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.8rem 1.2rem;
+    background: linear-gradient(45deg, #667eea, #764ba2);
+    color: white;
+    border: none;
+    border-radius: 25px;
+    font-weight: 600;
+    transition: all 0.3s ease;
+    white-space: nowrap;
+    font-size: 0.9rem;
+    cursor: pointer;
+}
+
+.info-btn:hover {
+    background: linear-gradient(45deg, #5a6fd8, #6a4190);
+    transform: translateY(-2px);
+    box-shadow: 0 4px 15px rgba(102, 126, 234, 0.3);
+}
+
+nav a:hover, nav a.active {
+    background: linear-gradient(45deg, #667eea, #764ba2);
+    color: black;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 15px rgba(102, 126, 234, 0.3);
+}
+
+/* Sidebar Styles */
+.sidebar {
+    position: fixed;
+    top: 0;
+    right: -350px;
+    width: 350px;
+    height: 100vh;
+    background: linear-gradient(180deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    z-index: 2000;
+    transition: all 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+    box-shadow: -5px 0 25px rgba(0, 0, 0, 0.3);
+    overflow-y: auto;
+}
+
+.sidebar.open {
+    right: 0;
+}
+
+.sidebar-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 2rem 1.5rem 1rem;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.2);
+    background: rgba(255, 255, 255, 0.1);
+    backdrop-filter: blur(10px);
+}
+
+.sidebar-header h2 {
+    font-size: 1.5rem;
+    font-weight: 700;
+    text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.3);
+}
+
+.close-btn {
+    background: rgba(255, 255, 255, 0.2);
+    border: 2px solid rgba(255, 255, 255, 0.3);
+    color: white;
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    cursor: pointer;
+    font-size: 1.5rem;
+    transition: all 0.3s ease;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.close-btn:hover {
+    background: rgba(255, 255, 255, 0.3);
+    transform: rotate(90deg);
+}
+
+.sidebar-content {
+    padding: 1rem 0;
+}
+
+.sidebar-item {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    padding: 1rem 1.5rem;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.sidebar-item:hover {
+    background: rgba(255, 255, 255, 0.2);
+    transform: translateX(-10px);
+    padding-right: 2rem;
+}
+
+.sidebar-item i {
+    font-size: 1.2rem;
+    width: 25px;
+    text-align: center;
+}
+
+.sidebar-item span {
+    font-size: 1rem;
+    font-weight: 500;
+}
+
+.social-links {
+    display: flex;
+    justify-content: center;
+    gap: 1rem;
+    padding: 2rem 1.5rem;
+    border-top: 1px solid rgba(255, 255, 255, 0.2);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.2);
+    margin: 1rem 0;
+}
+
+.social-links a {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 50px;
+    height: 50px;
+    background: rgba(255, 255, 255, 0.2);
+    border: 2px solid rgba(255, 255, 255, 0.3);
+    border-radius: 50%;
+    color: white;
+    text-decoration: none;
+    font-size: 1.5rem;
+    transition: all 0.3s ease;
+}
+
+.social-links a:hover {
+    background: rgba(255, 255, 255, 0.3);
+    transform: scale(1.1) rotate(5deg);
+}
+
+.developer-info {
+    padding: 1.5rem;
+    background: rgba(255, 255, 255, 0.1);
+    margin: 1rem;
+    border-radius: 15px;
+    text-align: center;
+    backdrop-filter: blur(10px);
+}
+
+.developer-info h4 {
+    font-size: 1.1rem;
+    margin-bottom: 0.5rem;
+    color: #fff;
+}
+
+.developer-info p {
+    font-size: 0.9rem;
+    margin: 0.3rem 0;
+    color: rgba(255, 255, 255, 0.9);
+}
+
+/* Developer Dropdown Styles */
+.sidebar-item.developer-info-small {
+    margin-top: 2rem;
+    margin-bottom: 0.5rem;
+    font-size: 0.9rem;
+    padding: 0.8rem 1rem;
+    border-radius: 10px;
+}
+
+.developer-dropdown {
+    max-height: 0;
+    overflow: hidden;
+    transition: max-height 0.4s ease, padding 0.4s ease;
+    background: rgba(255, 255, 255, 0.05);
+    margin: 0 1rem 1rem 1rem;
+    border-radius: 0 0 15px 15px;
+}
+
+.developer-dropdown.open {
+    max-height: 400px;
+    padding: 1.5rem;
+   
+}
+
+.developer-info-detailed {
+    text-align: center;
+    padding-top: 1rem;
+}
+
+.developer-avatar {
+    margin-bottom: 0.8rem;
+}
+
+.developer-avatar i {
+    font-size: 2.5rem;
+    color: rgba(255, 255, 255, 0.8);
+}
+
+.developer-info-detailed h4 {
+    font-size: 1.1rem;
+    margin-bottom: 0.3rem;
+    color: #fff;
+    font-weight: 600;
+}
+
+.developer-title {
+    font-size: 0.8rem;
+    color: rgba(255, 255, 255, 0.7);
+    margin-bottom: 1rem;
+    font-style: italic;
+}
+
+.developer-contact {
+    margin-bottom: 1rem;
+}
+
+.contact-item {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    margin-bottom: 0.6rem;
+    padding: 0.4rem;
+    background: rgba(255, 255, 255, 0.08);
+    border-radius: 6px;
+    transition: all 0.2s ease;
+}
+
+.contact-item:hover {
+    background: rgba(255, 255, 255, 0.15);
+    transform: translateX(-3px);
+}
+
+.contact-item i {
+    width: 18px;
+    text-align: center;
+    color: rgba(255, 255, 255, 0.7);
+    font-size: 0.9rem;
+}
+
+.contact-item span {
+    font-size: 0.75rem;
+    color: rgba(255, 255, 255, 0.85);
+}
+
+.developer-social {
+    display: flex;
+    justify-content: center;
+    gap: 0.6rem;
+    flex-wrap: wrap;
+    margin-top: 1rem;
+}
+
+.social-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 35px;
+    height: 35px;
+    border-radius: 50%;
+    text-decoration: none;
+    transition: all 0.2s ease;
+    font-size: 1rem;
+}
+
+.social-btn:hover {
+    transform: scale(1.05) rotate(3deg);
+    box-shadow: 0 3px 10px rgba(0, 0, 0, 0.2);
+}
+
+/* Overlay */
+.overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.5);
+    z-index: 1500;
+    opacity: 0;
+    visibility: hidden;
+    transition: all 0.3s ease;
+}
+
+.overlay.active {
+    opacity: 1;
+    visibility: visible;
+}
+
+/* Main Content */
+main {
+    margin-top: 180px;
+    padding: 2rem 1rem;
+    max-width: 1200px;
+    margin-left: auto;
+    margin-right: auto;
+}
+
+/* Category Sections */
+.category {
+    margin-bottom: 4rem;
+    background: rgba(255, 255, 255, 0.95);
+    border-radius: 20px;
+    padding: 2rem;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+    backdrop-filter: blur(10px);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.category h2 {
+    font-size: 2rem;
+    margin-bottom: 2rem;
+    text-align: center;
+    color: #333;
+    position: relative;
+    padding-bottom: 1rem;
+}
+
+.category h2::after {
+    content: '';
+    position: absolute;
+    bottom: 0;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 80px;
+    height: 4px;
+    background: linear-gradient(45deg, #667eea, #764ba2);
+    border-radius: 2px;
+}
+
+/* Items Grid */
+.items-grid {
+    display: grid;
+    gap: 2rem;
+    margin-top: 2rem;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    max-width: 1400px;
+    margin-left: auto;
+    margin-right: auto;
+}
+
+/* Desktop specific adjustments */
+@media (min-width: 1200px) {
+    .items-grid {
+        grid-template-columns: repeat(4, 1fr);
+        gap: 2.5rem;
+        padding: 0 1rem;
+    }
+    
+    .menu-item {
+        max-width: 320px;
+        margin: 0 auto;
+    }
+}
+
+@media (min-width: 992px) and (max-width: 1199px) {
+    .items-grid {
+        grid-template-columns: repeat(3, 1fr);
+        gap: 2rem;
+        padding: 0 1rem;
+    }
+}
+
+/* Tablet adjustments */
+@media (min-width: 769px) and (max-width: 991px) {
+    .items-grid {
+        grid-template-columns: repeat(2, 1fr);
+        gap: 1.5rem;
+        padding: 0 1rem;
+    }
+}
+
+/* Mobile adjustments - show 6-8 cards */
+@media (max-width: 768px) {
+    .items-grid {
+        grid-template-columns: repeat(2, 1fr);
+        gap: 1rem;
+        padding: 0 0.5rem;
+    }
+    
+    .menu-item {
+        min-height: 280px;
+        font-size: 0.9rem;
+    }
+    
+    .menu-item h3 {
+        font-size: 1rem;
+        line-height: 1.3;
+        margin: 0.8rem;
+    }
+    
+    .menu-item p {
+        font-size: 0.8rem;
+        line-height: 1.4;
+        margin: 0 0.8rem 0.8rem 0.8rem;
+        display: -webkit-box;
+        -webkit-line-clamp: 3;
+        -webkit-box-orient: vertical;
+        overflow: hidden;
+    }
+    
+    .menu-item img {
+        height: 140px;
+    }
+    
+    .menu-item .price {
+        font-size: 1.2rem;
+        margin: 0.8rem;
+    }
+}
+
+/* Very small mobile screens */
+@media (max-width: 480px) {
+    .items-grid {
+        grid-template-columns: repeat(2, 1fr);
+        gap: 0.8rem;
+        padding: 0 0.3rem;
+    }
+    
+    .menu-item {
+        min-height: 260px;
+        padding: 0;
+    }
+    
+    .menu-item img {
+        height: 120px;
+    }
+    
+    .menu-item h3 {
+        font-size: 0.9rem;
+        margin: 0.6rem;
+    }
+    
+    .menu-item p {
+        font-size: 0.75rem;
+        margin: 0 0.6rem 0.6rem 0.6rem;
+        -webkit-line-clamp: 2;
+    }
+    
+    .menu-item .price {
+        font-size: 1.1rem;
+        font-weight: 700;
+        margin: 0.6rem;
+    }
+}
+
+/* Menu Item Cards */
+.menu-item {
+    background: white;
+    border-radius: 20px;
+    overflow: hidden;
+    box-shadow: 0 8px 25px rgba(0, 0, 0, 0.1);
+    transition: all 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+    border: 1px solid rgba(102, 126, 234, 0.1);
+    position: relative;
+}
+
+.menu-item::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 4px;
+    background: linear-gradient(45deg, #667eea, #764ba2);
+    transform: scaleX(0);
+    transition: transform 0.3s ease;
+}
+
+.menu-item:hover::before {
+    transform: scaleX(1);
+}
+
+.menu-item:hover {
+    transform: translateY(-10px) scale(1.02);
+    box-shadow: 0 20px 40px rgba(102, 126, 234, 0.2);
+}
+
+.menu-item img {
+    width: 100%;
+    height: 200px;
+    object-fit: cover;
+    transition: all 0.4s ease;
+}
+
+.menu-item:hover img {
+    transform: scale(1.1);
+}
+
+.menu-item h3 {
+    font-size: 1.3rem;
+    margin: 1rem;
+    color: #333;
+    font-weight: 700;
+    line-height: 1.4;
+}
+
+.menu-item p {
+    margin: 0 1rem;
+    color: #666;
+    font-size: 0.95rem;
+    line-height: 1.6;
+    margin-bottom: 1rem;
+}
+
+.menu-item .price {
+    display: block;
+    margin: 1rem;
+    font-size: 1.4rem;
+    font-weight: 700;
+    color: #667eea;
+    text-align: center;
+    background: linear-gradient(45deg, #667eea, #764ba2);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+}
+
+/* Modal Styles */
+.modal {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.8);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 3000;
+    opacity: 0;
+    visibility: hidden;
+    transition: all 0.3s ease;
+}
+
+.modal.active {
+    opacity: 1;
+    visibility: visible;
+}
+
+.modal-content {
+    background: white;
+    padding: 2rem;
+    border-radius: 20px;
+    max-width: 500px;
+    width: 90%;
+    max-height: 80vh;
+    overflow-y: auto;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+    transform: scale(0.8);
+    transition: all 0.3s ease;
+}
+
+.modal.active .modal-content {
+    transform: scale(1);
+}
+
+.modal-content h3 {
+    text-align: center;
+    margin-bottom: 1.5rem;
+    color: #333;
+    font-size: 1.5rem;
+}
+
+.modal-content input,
+.modal-content textarea {
+    width: 100%;
+    padding: 1rem;
+    margin-bottom: 1rem;
+    border: 2px solid #ddd;
+    border-radius: 10px;
+    font-size: 1rem;
+    outline: none;
+    transition: all 0.3s ease;
+}
+
+.modal-content input:focus,
+.modal-content textarea:focus {
+    border-color: #667eea;
+    box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+}
+
+.stars {
+    display: flex;
+    justify-content: center;
+    gap: 0.5rem;
+    margin: 1rem 0;
+}
+
+.star {
+    font-size: 2rem;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    filter: grayscale(100%);
+}
+
+.star:hover,
+.star.active {
+    filter: grayscale(0%);
+    transform: scale(1.2);
+}
+
+.modal-content button {
+    width: 100%;
+    padding: 1rem;
+    margin: 0.5rem 0;
+    border: none;
+    border-radius: 10px;
+    font-size: 1rem;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    font-weight: 600;
+}
+
+.modal-content button[type="submit"] {
+    background: linear-gradient(45deg, #667eea, #764ba2);
+    color: white;
+}
+
+.modal-content button[type="submit"]:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 5px 15px rgba(102, 126, 234, 0.3);
+}
+
+.modal-content button[type="button"] {
+    background: #f8f9fa;
+    color: #333;
+    border: 2px solid #ddd;
+}
+
+.modal-content button[type="button"]:hover {
+    background: #e9ecef;
+}
+
+/* Footer */
+footer {
+    background: linear-gradient(45deg, #333, #555);
+    color: white;
+    text-align: center;
+    padding: 2rem;
+    margin-top: 4rem;
+}
+
+footer p {
+    font-size: 0.9rem;
+    line-height: 1.6;
+}
+
+/* Utility Classes */
+.hidden {
+    display: none !important;
+}
+
+.text-center {
+    text-align: center;
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+    .header-top {
+        padding: 0.8rem 1rem;
+    }
+    
+    header h1 {
+        font-size: 1.2rem;
+        margin: 0 0.5rem;
+    }
+    
+    .categories-btn span {
+        display: none;
+    }
+    
+    .sidebar {
+        width: 300px;
+        right: -300px;
+    }
+    
+    main {
+        margin-top: 160px;
+        padding: 1rem 0.5rem;
+    }
+    
+    .category {
+        padding: 1.5rem 1rem;
+        margin-bottom: 2rem;
+    }
+    
+    .category h2 {
+        font-size: 1.5rem;
+        margin-bottom: 1.5rem;
+    }
+    
+    .items-grid {
+        grid-template-columns: repeat(3, 1fr);
+        gap: 0.8rem;
+    }
+    
+    .menu-item {
+        border-radius: 15px;
+    }
+    
+    .menu-item img {
+        height: 120px;
+    }
+    
+    .menu-item h3 {
+        font-size: 0.95rem;
+        margin: 0.6rem;
+        line-height: 1.3;
+    }
+    
+    .menu-item p {
+        font-size: 0.75rem;
+        margin: 0 0.6rem 0.6rem;
+        line-height: 1.4;
+    }
+    
+    .menu-item .price {
+        font-size: 1.1rem;
+        margin: 0.6rem;
+    }
+    
+    nav a {
+        padding: 0.6rem 1rem;
+        font-size: 0.8rem;
+    }
+    
+    .modal-content {
+        padding: 1.5rem;
+        margin: 1rem;
+    }
+}
+
+@media (max-width: 480px) {
+    .items-grid {
+        grid-template-columns: repeat(2, 1fr);
+        gap: 0.8rem;
+    }
+    
+    .menu-item img {
+        height: 140px;
+    }
+    
+    .sidebar {
+        width: 280px;
+        right: -280px;
+    }
+    
+    .category h2 {
+        font-size: 1.3rem;
+    }
+    
+    .menu-item h3 {
+        font-size: 1rem;
+    }
+    
+    .menu-item p {
+        font-size: 0.8rem;
+    }
+    
+    main {
+        padding: 0.8rem 0.3rem;
+    }
+    
+    .category {
+        padding: 1rem 0.8rem;
+    }
+}
+
+@media (min-width: 1024px) {
+    .items-grid {
+        grid-template-columns: repeat(4, 1fr);
+        gap: 2.5rem;
+    }
+    
+    main {
+        margin-top: 200px;
+        padding: 3rem 2rem;
+    }
+    
+    .category {
+        padding: 3rem;
+    }
+    
+    .menu-item img {
+        height: 220px;
+    }
+}
+
+/* Animations */
+@keyframes fadeInUp {
+    from {
+        opacity: 0;
+        transform: translateY(30px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.menu-item {
+    animation: fadeInUp 0.6s ease forwards;
+}
+
+.menu-item:nth-child(even) {
+    animation-delay: 0.1s;
+}
+
+.menu-item:nth-child(3n) {
+    animation-delay: 0.2s;
+}
+
+/* Smooth scrolling */
+html {
+    scroll-behavior: smooth;
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar {
+    width: 8px;
+}
+
+::-webkit-scrollbar-track {
+    background: #f1f1f1;
+    border-radius: 10px;
+}
+
+::-webkit-scrollbar-thumb {
+    background: linear-gradient(45deg, #667eea, #764ba2);
+    border-radius: 10px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background: linear-gradient(45deg, #5a6fd8, #6a4190);
+}
+
+/* Loading animation for images */
+.menu-item img {
+    background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+    background-size: 200% 100%;
+    animation: loading 1.5s infinite;
+    transition: opacity 0.3s ease;
+}
+
+.menu-item img.lazy {
+    opacity: 0.5;
+}
+
+.menu-item img.loaded {
+    animation: none;
+    background: none;
+    opacity: 1;
+}
+
+@keyframes loading {
+    0% {
+        background-position: 200% 0;
+    }
+    100% {
+        background-position: -200% 0;
+    }
+}
+
+.menu-item img[src] {
+    animation: none;
+    background: none;
+}
+
+/* Performance optimizations */
+.menu-item {
+    will-change: transform;
+    contain: layout style paint;
+}
+
+.menu-item img {
+    will-change: transform;
+    image-rendering: -webkit-optimize-contrast;
+    image-rendering: crisp-edges;
+}
+
+/* Reduce motion for users who prefer it */
+@media (prefers-reduced-motion: reduce) {
+    * {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
+    }
+}
+
+/* Critical CSS for above-the-fold content */
+.critical-css {
+    font-display: swap;
+}
+
+/* Optimize font loading */
+@font-face {
+    font-family: 'Segoe UI';
+    font-display: swap;
+}
+
+/* Preload critical resources */
+.preload-hint {
+    content: '';
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    opacity: 0;
+    pointer-events: none;
+}
+
+/* Touch feedback */
+@media (hover: none) and (pointer: coarse) {
+    .menu-item:active {
+        transform: scale(0.98);
+    }
+    
+    .sidebar-item:active,
+    .category-item:active,
+    nav a:active,
+    .menu-btn:active,
+    .categories-btn:active,
+    .search-btn:active {
+        transform: scale(0.95);
+    }
+}
+
+.card { display:flex; flex-direction:column; height: 520px; }
+.card img { aspect-ratio: 4 / 3; object-fit: cover; }
+.card .description { display:-webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
+
+
+/* طبّق ستايل السلطات على جميع الكروت */
+.menu-item {
+  display: flex;
+  flex-direction: column;
+  height: 400px;           /* نفس الارتفاع على الديسكتوب */
+}
+
+.menu-item img {
+  width: 100%;
+  aspect-ratio: 4 / 3;     /* نفس نسبة الصورة */
+  object-fit: cover;
+  height: auto;            /* يلغي الارتفاعات الثابتة السابقة */
+}
+
+.menu-item p {
+  flex: 1 1 auto;          /* يملأ المساحة الوسطي */
+  display: -webkit-box;
+  -webkit-line-clamp: 3;   /* سطرين/ثلاثة مثل السلطات */
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.menu-item .price {
+  margin-top: auto;        /* السعر دائمًا أسفل الكرت */
+}
+
+/* على الشاشات الصغيرة: لا تثبّت الارتفاع */
+@media (max-width: 768px) {
+  .menu-item { height: auto; min-height: 300px; }
+}
