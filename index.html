@@ -18,7 +18,7 @@
     <link rel="preconnect" href="https://cdnjs.cloudflare.com" crossorigin>
     <link rel="preload" href="script.js" as="script">
 
-    <!-- 🔼 Preload لأولى صورة فوق الطيّة (fallback JPEG إن لم تتوفر نسخ AVIF/WebP بعد) -->
+    <!-- 🔼 Preload لأولى صورة فوق الطيّة -->
     <link rel="preload" as="image" href="images/breakfast2.jpg">
 
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
@@ -259,18 +259,10 @@
             <h2>🍳 الفطور الصباحي</h2>
             <div class="items-grid">
                 <div class="menu-item">
-                    <!-- ✅ تم تحويل أول صورة إلى picture مع أحجام ونسخ AVIF/WebP -->
-                    <picture>
-                      <source type="image/avif"
-                              srcset="images/breakfast2_480.avif 480w, images/breakfast2_800.avif 800w, images/breakfast2_1200.avif 1200w"
-                              sizes="(max-width: 768px) 100vw, 640px">
-                      <source type="image/webp"
-                              srcset="images/breakfast2_480.webp 480w, images/breakfast2_800.webp 800w, images/breakfast2_1200.webp 1200w"
-                              sizes="(max-width: 768px) 100vw, 640px">
-                      <img loading="eager" decoding="async" fetchpriority="high"
-                           src="images/breakfast2.jpg" alt="فطور عربي تقليدي"
-                           width="640" height="480">
-                    </picture>
+                    <!-- 🔼 أول صورة: eager + أولوية عالية + أبعاد ثابتة لمنع القفز -->
+                    <img loading="eager" decoding="sync" fetchpriority="high"
+                         src="images/breakfast2.jpg" alt="فطور عربي تقليدي"
+                         width="640" height="480">
                     <h3>فطور عربي تقليدي</h3>
                     <p>فطور شامل يضم الحمص والفول والجبن والزيتون والخضار الطازجة مع الخبز العربي</p>
                     <span class="price">7 $</span>
@@ -838,53 +830,6 @@
 
     <!-- Scripts -->
     <script src="script.js"></script>
-
-    <!-- ✅ سكربت ترقية الصور تلقائيًا إلى AVIF ثم WebP مع رجوع آمن -->
-    <script>
-      (function () {
-        const imgs = Array.from(document.querySelectorAll('img[src]'));
-        imgs.forEach(img => {
-          const orig = img.getAttribute('src');
-          if (!/\.(jpe?g|png)$/i.test(orig)) return; // نتعامل فقط مع jpg/png
-
-          // لا نلمس صورة الهيرو الأولى لأنها ضمن <picture>
-          if (orig.includes('images/breakfast2.')) return;
-
-          const toAvif = orig.replace(/\.(jpe?g|png)$/i, '.avif');
-          const toWebp = orig.replace(/\.(jpe?g|png)$/i, '.webp');
-
-          // نحاول AVIF أولاً
-          const tryWebp = () => {
-            img.onerror = () => { img.onerror = null; img.src = orig; };
-            img.src = toWebp;
-          };
-
-          const start = () => {
-            img.onerror = () => tryWebp();
-            img.src = toAvif;
-          };
-
-          // إن كانت الصورة خارج الشاشة (lazy)، نمهل التنفيذ قليلاً حتى لا نكسر التحميل الكسول
-          if (img.loading === 'lazy') {
-            // نعتمد على IntersectionObserver لو توفر
-            if ('IntersectionObserver' in window) {
-              const io = new IntersectionObserver((entries) => {
-                entries.forEach(e => {
-                  if (e.isIntersecting) { start(); io.unobserve(img); }
-                });
-              });
-              io.observe(img);
-            } else {
-              // بديل بسيط
-              setTimeout(start, 0);
-            }
-          } else {
-            start();
-          }
-        });
-      })();
-    </script>
-
     <script>
         // Service Worker: اجعل المسار نسبيًا لتفادي 404 عند النشر داخل مجلد فرعي
         if ('serviceWorker' in navigator) {
