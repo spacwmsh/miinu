@@ -1,4 +1,4 @@
-// Service Worker for Digital Menu (optimized + WebP transcoding)
+// Service Worker for Digital Menu (optimized)
 const VERSION = 'v2.1';
 const STATIC_CACHE = `dm-static-${VERSION}`;
 const PAGES_CACHE  = `dm-pages-${VERSION}`;
@@ -117,83 +117,9 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // الصور: تحويل إلى WebP على الطاير + كاش مخصص، مع fallback إلى Stale-While-Revalidate
+  // الصور: اضغطها إلى WebP (إن كان المتصفح يدعم) مع كاش ذكي
   if (req.destination === 'image') {
-    event.respondWith((async () => {
-      const cache = await caches.open(IMAGES_CACHE);
-
-      // هل المتصفح يقبل WebP؟
-      const accept = req.headers.get('accept') || '';
-      const wantsWebP = accept.includes('image/webp');
-
-      const urlObj = new URL(req.url);
-      const canTranscode =
-        wantsWebP &&
-        sameOrigin(urlObj) &&                 // نتجنب مشاكل CORS/taint
-        'OffscreenCanvas' in self &&
-        'createImageBitmap' in self;
-
-      if (canTranscode) {
-        // مفتاح منفصل للنسخة WebP حتى لا تتصادم مع الأصل
-        const webpURL = new URL(req.url);
-        webpURL.searchParams.set('_fmt', 'webp');
-
-        // أعِد النسخة WebP من الكاش إن وُجدت
-        const cachedWebP = await cache.match(webpURL.href, { ignoreSearch: false });
-        if (cachedWebP) return cachedWebP;
-
-        try {
-          // اجلب الصورة الأصلية مرة واحدة
-          const res = await fetch(req, { cache: 'no-store' });
-          if (!res.ok) throw new Error('Fetch failed');
-
-          const blob = await res.blob();
-          const bmp = await createImageBitmap(blob);
-
-          // (اختياري) تقليل الأبعاد الكبيرة لتصغير الحجم
-          const MAX_W = 1600;
-          const outW = Math.min(bmp.width, MAX_W);
-          const outH = Math.round((bmp.height * outW) / bmp.width);
-
-          const canvas = new OffscreenCanvas(outW, outH);
-          const ctx = canvas.getContext('2d', { alpha: false });
-          ctx.drawImage(bmp, 0, 0, outW, outH);
-
-          const webpBlob = await canvas.convertToBlob({
-            type: 'image/webp',
-            quality: 0.8
-          });
-
-          const webpRes = new Response(webpBlob, {
-            headers: {
-              'Content-Type': 'image/webp',
-              'Cache-Control': 'public, max-age=31536000, immutable',
-              'Vary': 'Accept'
-            }
-          });
-
-          // خزّن النسخة WebP بمفتاحها الخاص وارجعها
-          await cache.put(webpURL.href, webpRes.clone());
-          trimCache(IMAGES_CACHE, 60);
-          return webpRes;
-        } catch (e) {
-          // في حال فشل التحويل سنهبط إلى الاستراتيجية الافتراضية بالأسفل
-        }
-      }
-
-      // الاستراتيجية الافتراضية للصور: Stale-While-Revalidate
-      const cached = await cache.match(req, { ignoreSearch: true });
-      const networkPromise = fetch(req)
-        .then(async (res) => {
-          if (res && (res.ok || res.type === 'opaque')) {
-            cache.put(req, res.clone()).then(() => trimCache(IMAGES_CACHE, 60));
-          }
-          return res;
-        })
-        .catch(() => cached);
-      // أعطِ المستخدم أسرع استجابة متاحة
-      return cached || networkPromise;
-    })());
+    event.respondWith(serveCompressedImage(event, req));
     return;
   }
 
@@ -271,3 +197,91 @@ self.addEventListener('message', (event) => {
     self.skipWaiting();
   }
 });
+
+// ---------- Image compression helpers ----------
+async function serveCompressedImage(event, req) {
+  const url = new URL(req.url);
+  const accept = req.headers.get('accept') || '';
+
+  // لا نضغط إذا كان المتصفح لا يقبل WebP أو لو كانت الصورة أصلاً WebP/AVIF/SVG/ICO
+  if (!/image\/webp/i.test(accept) || /\.(webp|avif|svg|ico)$/i.test(url.pathname)) {
+    // SWR كما هو
+    const cache = await caches.open(IMAGES_CACHE);
+    const cached = await cache.match(req, { ignoreSearch: true });
+    const net = fetch(req)
+      .then(async (res) => {
+        if (res && (res.ok || res.type === 'opaque')) {
+          cache.put(req, res.clone()).then(() => trimCache(IMAGES_CACHE, 60));
+        }
+        return res;
+      })
+      .catch(() => cached);
+    return cached || net;
+  }
+
+  // مفتاح خاص لنسخة WebP المضغوطة
+  const webpKey = new Request(
+    url.href + (url.search ? '&' : '?') + 'sw-webp=1',
+    { headers: req.headers, mode: req.mode, credentials: req.credentials, cache: 'no-store' }
+  );
+  const cache = await caches.open(IMAGES_CACHE);
+
+  // إن وُجدت النسخة المضغوطة بالكاش أعرضها فوراً
+  const cachedWebp = await cache.match(webpKey, { ignoreSearch: false });
+  if (cachedWebp) return cachedWebp;
+
+  // اجلب الأصل سريعاً وأعده للمستخدم، واضغط في الخلفية للمرات القادمة
+  const originalRes = await fetch(req).catch(() => null);
+  if (!originalRes || !(originalRes.ok || originalRes.type === 'opaque')) {
+    const fallback = await cache.match(req, { ignoreSearch: true });
+    return fallback || originalRes || Response.error();
+  }
+
+  const contentType = originalRes.headers.get('Content-Type') || '';
+  if (originalRes.type === 'opaque' || /image\/(webp|avif|svg\+xml)/i.test(contentType)) {
+    cache.put(req, originalRes.clone()).then(() => trimCache(IMAGES_CACHE, 60));
+    return originalRes;
+  }
+
+  // اضغط في الخلفية بدون تعطيل أول عرض
+  event.waitUntil((async () => {
+    try {
+      const blob = await originalRes.clone().blob();
+      const saveData = (req.headers.get('Save-Data') || '').toLowerCase() === 'on';
+      const quality = saveData ? 0.6 : 0.72; // خفّض الجودة عند تفعيل توفير البيانات
+      const webpBlob = await encodeToWebP(blob, quality);
+      if (webpBlob) {
+        const response = new Response(webpBlob, {
+          headers: {
+            'Content-Type': 'image/webp',
+            'Cache-Control': 'public, max-age=31536000, immutable'
+          }
+        });
+        await cache.put(webpKey, response.clone());
+        await trimCache(IMAGES_CACHE, 60);
+      }
+    } catch (e) { /* تجاهل الأخطاء بهدوء */ }
+  })());
+
+  // أعرض الأصل الآن (بدون تأخير)
+  return originalRes;
+}
+
+async function encodeToWebP(blob, quality = 0.72) {
+  try {
+    // يلزم OffscreenCanvas داخل SW؛ إن لم يتوفر نرجع null لنتخطى الضغط
+    if (typeof OffscreenCanvas === 'undefined' || typeof createImageBitmap === 'undefined') return null;
+
+    const bitmap = await createImageBitmap(blob);
+    const canvas = new OffscreenCanvas(bitmap.width, bitmap.height);
+    const ctx = canvas.getContext('2d', { alpha: false, desynchronized: true });
+    ctx.drawImage(bitmap, 0, 0);
+
+    if (typeof canvas.convertToBlob === 'function') {
+      return await canvas.convertToBlob({ type: 'image/webp', quality });
+    }
+    return await new Promise(resolve => canvas.toBlob(resolve, 'image/webp', quality));
+  } catch {
+    return null;
+  }
+}
