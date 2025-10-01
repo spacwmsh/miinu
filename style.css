@@ -1508,3 +1508,18 @@ html {
 @media (max-width: 768px) {
   .menu-item { height: auto; min-height: 300px; }
 }
+/* تحسين رسم الأقسام والبطاقات تحت الطيّة */
+.category {
+  content-visibility: auto;
+  contain-intrinsic-size: 1000px 800px;
+}
+.menu-item {
+  content-visibility: auto;
+  contain-intrinsic-size: 400px 300px;
+}
+@media (max-width: 768px) {
+  header, .sidebar { backdrop-filter: none !important; }
+  body::before { animation: none; opacity: 0; }
+  .menu-item:hover { transform: none; box-shadow: 0 8px 20px rgba(0,0,0,0.08); }
+}
+
