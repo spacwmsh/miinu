@@ -245,6 +245,32 @@ async function serveCompressedImage(event, req) {
 
   // --- جديد: إن كان Save-Data مفعّل، اضغط الآن وأعد WebP فورًا من أول زيارة
   const saveDataHeader = (req.headers.get('Save-Data') || '').toLowerCase() === 'on';
+  // إن كانت الصورة كبيرة وأجهزة المستخدم تدعم webp، اضغط الآن وأعِدّها فورًا
+const acceptHeader = (req.headers.get('Accept') || '').toLowerCase();
+const supportsWebP = acceptHeader.includes('image/avif') || acceptHeader.includes('image/webp');
+
+if (supportsWebP) {
+  const originalResClone = originalRes ? originalRes.clone() : await fetch(req, { cache: 'no-store' });
+  const blob = await originalResClone.blob();
+  if (blob.size >= 100 * 1024) { // > 100KB
+    const webpBlob = await encodeToWebP(blob, 0.72);
+    if (webpBlob) {
+      const response = new Response(webpBlob, {
+        headers: {
+          'Content-Type': 'image/webp',
+          'Cache-Control': 'public, max-age=31536000, immutable',
+          'Vary': 'Accept, Save-Data'
+        }
+      });
+      const cache = await caches.open(IMAGES_CACHE);
+      const webpKey = new Request(req.url, { headers: { Accept: 'image/webp' } });
+      await cache.put(webpKey, response.clone());
+      await trimCache(IMAGES_CACHE, 60);
+      return response; // ← إرجاع المضغوط من أول مرة
+    }
+  }
+}
+
   if (saveDataHeader) {
     try {
       const blob = await originalRes.clone().blob();
