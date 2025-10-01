@@ -1,5 +1,5 @@
 // Service Worker for Digital Menu (optimized)
-const VERSION = 'v2.1';
+const VERSION = 'v2.2';
 const STATIC_CACHE = `dm-static-${VERSION}`;
 const PAGES_CACHE  = `dm-pages-${VERSION}`;
 const IMAGES_CACHE = `dm-images-${VERSION}`;
@@ -230,7 +230,7 @@ async function serveCompressedImage(event, req) {
   const cachedWebp = await cache.match(webpKey, { ignoreSearch: false });
   if (cachedWebp) return cachedWebp;
 
-  // اجلب الأصل سريعاً وأعده للمستخدم، واضغط في الخلفية للمرات القادمة
+  // اجلب الأصل سريعاً
   const originalRes = await fetch(req).catch(() => null);
   if (!originalRes || !(originalRes.ok || originalRes.type === 'opaque')) {
     const fallback = await cache.match(req, { ignoreSearch: true });
@@ -243,24 +243,50 @@ async function serveCompressedImage(event, req) {
     return originalRes;
   }
 
-  // اضغط في الخلفية بدون تعطيل أول عرض
+  // --- جديد: إن كان Save-Data مفعّل، اضغط الآن وأعد WebP فورًا من أول زيارة
+  const saveDataHeader = (req.headers.get('Save-Data') || '').toLowerCase() === 'on';
+  if (saveDataHeader) {
+    try {
+      const blob = await originalRes.clone().blob();
+      // لا تضغط الأيقونات الصغيرة جدًا لتوفير وقت المعالجة
+      if (blob.size >= 8 * 1024) {
+        const webpBlob = await encodeToWebP(blob, 0.6);
+        if (webpBlob) {
+          const response = new Response(webpBlob, {
+            headers: {
+              'Content-Type': 'image/webp',
+              'Cache-Control': 'public, max-age=31536000, immutable',
+              'Vary': 'Accept, Save-Data'
+            }
+          });
+          await cache.put(webpKey, response.clone());
+          await trimCache(IMAGES_CACHE, 60);
+          return response; // ← أعد المضغوط فورًا
+        }
+      }
+    } catch { /* تجاهل الخطأ وكمّل */ }
+  }
+
+  // اضغط في الخلفية لباقي المستخدمين بدون تعطيل أول عرض
   event.waitUntil((async () => {
     try {
       const blob = await originalRes.clone().blob();
-      const saveData = (req.headers.get('Save-Data') || '').toLowerCase() === 'on';
+      if (blob.size < 8 * 1024) return; // تجاهل الصغير جدًا
+      const saveData = saveDataHeader;
       const quality = saveData ? 0.6 : 0.72; // خفّض الجودة عند تفعيل توفير البيانات
       const webpBlob = await encodeToWebP(blob, quality);
       if (webpBlob) {
         const response = new Response(webpBlob, {
           headers: {
             'Content-Type': 'image/webp',
-            'Cache-Control': 'public, max-age=31536000, immutable'
+            'Cache-Control': 'public, max-age=31536000, immutable',
+            'Vary': 'Accept, Save-Data'
           }
         });
         await cache.put(webpKey, response.clone());
         await trimCache(IMAGES_CACHE, 60);
       }
-    } catch (e) { /* تجاهل الأخطاء بهدوء */ }
+    } catch { /* تجاهل الأخطاء بهدوء */ }
   })());
 
   // أعرض الأصل الآن (بدون تأخير)
