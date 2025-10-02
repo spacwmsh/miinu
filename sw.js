@@ -1,5 +1,5 @@
 // Service Worker for Digital Menu (optimized)
-const VERSION = 'v2.2';
+const VERSION = 'v2.3';
 const STATIC_CACHE = `dm-static-${VERSION}`;
 const PAGES_CACHE  = `dm-pages-${VERSION}`;
 const IMAGES_CACHE = `dm-images-${VERSION}`;
@@ -202,6 +202,7 @@ self.addEventListener('message', (event) => {
 async function serveCompressedImage(event, req) {
   const url = new URL(req.url);
   const accept = req.headers.get('accept') || '';
+const wParam = parseInt((url.searchParams.get('w') || '0'), 10) || 0;
 
   // لا نضغط إذا كان المتصفح لا يقبل WebP أو لو كانت الصورة أصلاً WebP/AVIF/SVG/ICO
   if (!/image\/webp/i.test(accept) || /\.(webp|avif|svg|ico)$/i.test(url.pathname)) {
@@ -253,7 +254,7 @@ if (supportsWebP) {
   const originalResClone = originalRes ? originalRes.clone() : await fetch(req, { cache: 'no-store' });
   const blob = await originalResClone.blob();
   if (blob.size >= 100 * 1024) { // > 100KB
-    const webpBlob = await encodeToWebP(blob, 0.72);
+const webpBlob = await encodeToWebP(blob, 0.72, wParam);
     if (webpBlob) {
       const response = new Response(webpBlob, {
         headers: {
@@ -276,7 +277,7 @@ if (supportsWebP) {
       const blob = await originalRes.clone().blob();
       // لا تضغط الأيقونات الصغيرة جدًا لتوفير وقت المعالجة
       if (blob.size >= 8 * 1024) {
-        const webpBlob = await encodeToWebP(blob, 0.6);
+const webpBlob = await encodeToWebP(blob, 0.6, wParam);
         if (webpBlob) {
           const response = new Response(webpBlob, {
             headers: {
@@ -300,7 +301,7 @@ if (supportsWebP) {
       if (blob.size < 8 * 1024) return; // تجاهل الصغير جدًا
       const saveData = saveDataHeader;
       const quality = saveData ? 0.6 : 0.72; // خفّض الجودة عند تفعيل توفير البيانات
-      const webpBlob = await encodeToWebP(blob, quality);
+const webpBlob = await encodeToWebP(blob, quality, wParam);
       if (webpBlob) {
         const response = new Response(webpBlob, {
           headers: {
@@ -319,15 +320,24 @@ if (supportsWebP) {
   return originalRes;
 }
 
-async function encodeToWebP(blob, quality = 0.72) {
+async function encodeToWebP(blob, quality = 0.72, targetWidth = 0) {
   try {
-    // يلزم OffscreenCanvas داخل SW؛ إن لم يتوفر نرجع null لنتخطى الضغط
     if (typeof OffscreenCanvas === 'undefined' || typeof createImageBitmap === 'undefined') return null;
 
     const bitmap = await createImageBitmap(blob);
-    const canvas = new OffscreenCanvas(bitmap.width, bitmap.height);
+
+    let outW = bitmap.width;
+    let outH = bitmap.height;
+
+    if (targetWidth && bitmap.width > targetWidth) {
+      const scale = targetWidth / bitmap.width;
+      outW = Math.max(1, Math.round(bitmap.width * scale));
+      outH = Math.max(1, Math.round(bitmap.height * scale));
+    }
+
+    const canvas = new OffscreenCanvas(outW, outH);
     const ctx = canvas.getContext('2d', { alpha: false, desynchronized: true });
-    ctx.drawImage(bitmap, 0, 0);
+    ctx.drawImage(bitmap, 0, 0, outW, outH);
 
     if (typeof canvas.convertToBlob === 'function') {
       return await canvas.convertToBlob({ type: 'image/webp', quality });
