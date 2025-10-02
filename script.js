@@ -21,6 +21,7 @@ const ratingModal = document.getElementById('ratingModal');
 document.addEventListener('DOMContentLoaded', function () {
   // أظهر اللودر مبكرًا (سيُخفى لحظة جاهزية أول صورة مهمة بدل تأخير ثابت)
   showLoading();
+applyDynamicImageWidthParam();
 
   initializeApp();
   setupEventListeners();
@@ -600,6 +601,24 @@ function setupImageLazyLoading() {
 
     images.forEach((img) => imageObserver.observe(img));
   }
+}
+function applyDynamicImageWidthParam() {
+  const dpr = Math.max(1, Math.min(3, Math.round(window.devicePixelRatio || 1)));
+  const lazyImages = document.querySelectorAll('.menu-item img[loading="lazy"]');
+
+  lazyImages.forEach((img) => {
+    try {
+      const card = img.closest('.menu-item') || img;
+      const displayW = Math.max(160, Math.min(1000, Math.round(card.clientWidth || img.width || 320)));
+      const targetW = Math.min(1000, displayW * dpr);
+
+      const u = new URL(img.getAttribute('src'), location.href);
+      if (!u.searchParams.has('w')) {
+        u.searchParams.set('w', String(targetW));
+        img.src = u.toString();
+      }
+    } catch {}
+  });
 }
 
 // Keyboard navigation
