@@ -20,7 +20,6 @@ const ratingModal = document.getElementById('ratingModal');
 // Initialize app
 document.addEventListener('DOMContentLoaded', function () {
   // أظهر اللودر مبكرًا (سيُخفى لحظة جاهزية أول صورة مهمة بدل تأخير ثابت)
-  showLoading();
 applyDynamicImageWidthParam();
 
   initializeApp();
