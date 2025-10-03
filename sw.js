@@ -1,10 +1,4 @@
 // Service Worker for Digital Menu (optimized)
-// --- تحديثات رئيسية ---
-// 1) دعم صريح لـ AVIF بالإضافة إلى WebP عند التفاوض عبر Accept.
-// 2) توحيد مفاتيح الكاش للإصدارات المضغوطة (sw-im=<webp|avif>) واستخدامها نفسها في match+put.
-// 3) عتبات حجم أذكى حسب النوع (PNG/JPG) + احترام Save-Data.
-// 4) ضغط فوري على أول زيارة للصور الكبيرة، وخلفية للباقي.
-// --------------------------------------------
 const VERSION = 'v2.4';
 const STATIC_CACHE = `dm-static-${VERSION}`;
 const PAGES_CACHE  = `dm-pages-${VERSION}`;
@@ -21,6 +15,87 @@ const STATIC_ASSETS = [
   './working-hours.html',
   './rating.html',
   './manifest.json'
+  
+];
+const IMAGE_ASSETS = [
+  './images/Arabic_Coffee.png',
+  './images/Basbousa.png',
+  './images/Basbousa_with_Cream.jpg',
+  './images/Beef_Burger.jpg',
+  './images/Caesar_Salad.jpg',
+  './images/Cappuccino.png',
+  './images/Cheese_Manakish.png',
+  './images/Cheesecake.png',
+  './images/Chicken_Biryani.png',
+  './images/Chicken_Burger.png',
+  './images/Chicken_Kabsa.png',
+  './images/Chicken_Shawarma.png',
+  './images/Club_Sandwich.jpg',
+  './images/Club_Sandwich.png',
+  './images/Double_Cheeseburger.png',
+  './images/Eggplant_Mutabbal.jpg',
+  './images/Falafel.jpg',
+  './images/Fattoush_Salad.jpg',
+  './images/Fruit_Cocktail.jpg',
+  './images/Garlic_Bread.png',
+  './images/Grilled_Fish.png',
+  './images/Grilled_Salmon.png',
+  './images/Lamb_Chops.png',
+  './images/Lamb_Mandi.png',
+  './images/Lemon_Mint_Juice.png',
+  './images/Mansaf.png',
+  './images/Mixed_Grill.jpg',
+  './images/Olives_Plate.png',
+  './images/Pizza_Margherita.png',
+  './images/Spinach_Fatayer.png',
+  './images/Stuffed_Chicken_with_Rice.jpg',
+  './images/Chicken_Kabsa.png',
+  './images/Chicken_Biryani.png',
+  './images/Chicken_Shawarma.png',
+  './images/Club_Sandwich.png',
+  './images/crepe1.jpg',
+  './images/western3.jpg',
+  './images/Basbousa_with_Cream.jpg',
+  './images/cake1.jpg',
+  './images/Cheesecake.png',
+  './images/Basbousa.png',
+  './images/arabic_sweets1.jpg',
+  './images/fruit1.jpg',
+  './images/Fruit_Cocktail.jpg',
+  './images/margherita1.jpg',
+  './images/pepperoni1.jpg',
+  './images/vegetarian1.jpg',
+  './images/Pizza_Margherita.png',
+  './images/Cheese_Manakish.png',
+  './images/Garlic_Bread.png',
+  './images/Spinach_Fatayer.png',
+  './images/orange1.jpg',
+  './images/Lemon_Mint_Juice.png',
+  './images/drink1.jpg',
+  './images/Arabic_Coffee.png',
+  './images/Turkish_Tea.png',
+  './images/Cappuccino.png',
+  './images/restaurant_interior.jpg',
+  './images/breakfast2.jpg',
+  './images/soup1.jpg',
+  './images/salad1.jpg',
+  './images/salad2.jpg',
+  './images/Seafood1.jpg',
+  './images/seafood1.jpg',
+  './images/seafood2.jpg',
+  './images/sandwich1.jpg',
+  './images/Chicken_Burger.png',
+  './images/Club_Sandwich.png',
+  './images/Beef_Burger.jpg',
+  './images/Double_Cheeseburger.png',
+  './images/Mixed_Grill.jpg',
+  './images/grill2.jpg',
+  './images/Shish_Tawook.png',
+  './images/meat1.jpg',
+  './images/Lamb_Chops.png',
+  './images/Grilled_Salmon.png',
+  './images/Grilled_Fish.png',
+  './images/hot1.jpg'
 ];
 
 // ---------- Helpers ----------
@@ -45,22 +120,14 @@ function sameOrigin(url) {
   return url.origin === self.location.origin;
 }
 
-const MODERN_ACCEPT_RE = /image\/(avif|webp)/i;
-const ACCEPTS_AVIF = /image\/avif/i;
-const ACCEPTS_WEBP = /image\/webp/i;
-
-function buildVariantKey(url, type /* 'image/avif' | 'image/webp' */) {
-  const u = new URL(url);
-  const param = type === 'image/avif' ? 'sw-im=avif' : 'sw-im=webp';
-  u.search += (u.search ? '&' : '?') + param;
-  return new Request(u.href, { cache: 'no-store' });
-}
-
 // ---------- Install ----------
 self.addEventListener('install', (event) => {
   event.waitUntil((async () => {
     const cache = await caches.open(STATIC_CACHE);
     await cache.addAll(STATIC_ASSETS);
+    const imagesCache = await caches.open(IMAGES_CACHE);
+await imagesCache.addAll(IMAGE_ASSETS);
+
     // فعّل SW الجديد مباشرةً
     await self.skipWaiting();
   })());
@@ -134,7 +201,7 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // الصور: اضغطها إلى WebP/AVIF (حسب دعم المتصفح) مع كاش ذكي
+  // الصور: اضغطها إلى WebP (إن كان المتصفح يدعم) مع كاش ذكي
   if (req.destination === 'image') {
     event.respondWith(serveCompressedImage(event, req));
     return;
@@ -219,10 +286,10 @@ self.addEventListener('message', (event) => {
 async function serveCompressedImage(event, req) {
   const url = new URL(req.url);
   const accept = req.headers.get('accept') || '';
-  const wParam = parseInt((url.searchParams.get('w') || '0'), 10) || 0;
+const wParam = parseInt((url.searchParams.get('w') || '0'), 10) || 0;
 
-  // لا نضغط إذا كان المتصفح لا يقبل أي صيغة حديثة أو لو كانت الصورة أصلاً WebP/AVIF/SVG/ICO
-  if (!MODERN_ACCEPT_RE.test(accept) || /\.(webp|avif|svg|ico)$/i.test(url.pathname)) {
+  // لا نضغط إذا كان المتصفح لا يقبل WebP أو لو كانت الصورة أصلاً WebP/AVIF/SVG/ICO
+  if (!/image\/webp/i.test(accept) || /\.(webp|avif|svg|ico)$/i.test(url.pathname)) {
     // SWR كما هو
     const cache = await caches.open(IMAGES_CACHE);
     const cached = await cache.match(req, { ignoreSearch: true });
@@ -237,27 +304,16 @@ async function serveCompressedImage(event, req) {
     return cached || net;
   }
 
-  const cache = await caches.open(IMAGES_CACHE);
+// مفتاح قانوني موحّد للصور (بدون باراميترات الاستعلام)
+const canonicalReq = new Request(url.origin + url.pathname, {
+  headers: req.headers, mode: req.mode, credentials: req.credentials
+}
+);
+const cache = await caches.open(IMAGES_CACHE);
 
-  // جرّب أولاً النسخة المفضلة حسب Accept (AVIF ثم WebP)
-  const prefersAvif = ACCEPTS_AVIF.test(accept);
-  const prefersWebP = ACCEPTS_WEBP.test(accept);
-
-  const avifKey = buildVariantKey(url.href, 'image/avif');
-  const webpKey = buildVariantKey(url.href, 'image/webp');
-
-  if (prefersAvif) {
-    const hit = await cache.match(avifKey, { ignoreSearch: false });
-    if (hit) return hit;
-    // لو ما في AVIF، جرّب WebP إن كان مقبولاً
-    if (prefersWebP) {
-      const hit2 = await cache.match(webpKey, { ignoreSearch: false });
-      if (hit2) return hit2;
-    }
-  } else if (prefersWebP) {
-    const hit = await cache.match(webpKey, { ignoreSearch: false });
-    if (hit) return hit;
-  }
+  // إن وُجدت النسخة المضغوطة بالكاش أعرضها فوراً
+const cachedWebp = await cache.match(canonicalReq, { ignoreSearch: true });
+  if (cachedWebp) return cachedWebp;
 
   // اجلب الأصل سريعاً
   const originalRes = await fetch(req).catch(() => null);
@@ -272,94 +328,83 @@ async function serveCompressedImage(event, req) {
     return originalRes;
   }
 
-  // نوع الصورة الأصلي للمساعدة في تحديد العتبة
-  const isPNG = /image\/png/i.test(contentType) || /\.png($|\?)/i.test(url.pathname);
-  const isJPG = /image\/jpe?g/i.test(contentType) || /\.(jpe?g)($|\?)/i.test(url.pathname);
-
-  // احترام وضع توفير البيانات
+  // --- جديد: إن كان Save-Data مفعّل، اضغط الآن وأعد WebP فورًا من أول زيارة
   const saveDataHeader = (req.headers.get('Save-Data') || '').toLowerCase() === 'on';
+  // إن كانت الصورة كبيرة وأجهزة المستخدم تدعم webp، اضغط الآن وأعِدّها فورًا
+const acceptHeader = (req.headers.get('Accept') || '').toLowerCase();
+const supportsWebP = acceptHeader.includes('image/avif') || acceptHeader.includes('image/webp');
 
-  // عتبات حجم أذكى
-  const baseMin = isPNG ? 30 * 1024 : isJPG ? 60 * 1024 : 80 * 1024;
-  const minSize = saveDataHeader ? Math.max(8 * 1024, Math.floor(baseMin * 0.6)) : baseMin;
-  const quality = saveDataHeader ? 0.6 : 0.72;
+if (supportsWebP) {
+  const originalResClone = originalRes ? originalRes.clone() : await fetch(req, { cache: 'no-store' });
+  const blob = await originalResClone.blob();
+  if (blob.size >= 100 * 1024) { // > 100KB
+const webpBlob = await encodeToWebP(blob, 0.72, wParam);
+    if (webpBlob) {
+      const response = new Response(webpBlob, {
+        headers: {
+          'Content-Type': 'image/webp',
+          'Cache-Control': 'public, max-age=31536000, immutable',
+          'Vary': 'Accept, Save-Data'
+        }
+      });
+      const cache = await caches.open(IMAGES_CACHE);
+     await cache.put(canonicalReq, response.clone());
 
-  // سنحاول الضغط الفوري إن كانت الصورة أكبر من العتبة
-  try {
-    const originalResClone = originalRes.clone();
-    const blob = await originalResClone.blob();
-
-    // خزن الأصل للرجوع لاحقاً (حسب نفس الأصل) ثم قرّر الضغط
-    cache.put(req, originalRes.clone()).then(() => trimCache(IMAGES_CACHE, 60));
-
-    // تجاهل الأيقونات الصغيرة جداً
-    if (blob.size < 8 * 1024) {
-      return originalRes;
+      await trimCache(IMAGES_CACHE, 60);
+      return response; // ← إرجاع المضغوط من أول مرة
     }
+  }
+}
 
-    // ضغط فوري للصور الكبيرة
-    if (blob.size >= minSize) {
-      // حاول AVIF أولاً إن كان مفضلاً، ثم WebP؛ أو العكس حسب Accept
-      const order = [];
-      if (prefersAvif) order.push('image/avif');
-      if (prefersWebP) order.push('image/webp');
-      // لو كان يقبل الاثنتين لكن فضّلنا دائماً AVIF أولاً
-      if (!order.length) order.push('image/webp'); // احتياط
-
-      for (const type of order) {
-        const encoded = await encodeToFormat(blob, type, quality, wParam);
-        if (encoded) {
-          const response = new Response(encoded, {
+  if (saveDataHeader) {
+    try {
+      const blob = await originalRes.clone().blob();
+      // لا تضغط الأيقونات الصغيرة جدًا لتوفير وقت المعالجة
+      if (blob.size >= 8 * 1024) {
+const webpBlob = await encodeToWebP(blob, 0.6, wParam);
+        if (webpBlob) {
+          const response = new Response(webpBlob, {
             headers: {
-              'Content-Type': type,
+              'Content-Type': 'image/webp',
               'Cache-Control': 'public, max-age=31536000, immutable',
               'Vary': 'Accept, Save-Data'
             }
           });
-          const variantKey = type === 'image/avif' ? avifKey : webpKey;
-          await cache.put(variantKey, response.clone());
+          await cache.put(webpKey, response.clone());
           await trimCache(IMAGES_CACHE, 60);
-          return response; // ← إرجاع المضغوط من أول مرة
+          return response; // ← أعد المضغوط فورًا
         }
       }
-    }
-
-    // لم نضغط الآن؟ اضغط في الخلفية وارجع الأصل فوراً
-    event.waitUntil((async () => {
-      try {
-        const saveData = saveDataHeader;
-        const q = saveData ? 0.6 : 0.72;
-        const order = [];
-        if (prefersAvif) order.push('image/avif');
-        if (prefersWebP) order.push('image/webp');
-        if (!order.length) order.push('image/webp');
-
-        for (const type of order) {
-          const encoded = await encodeToFormat(blob, type, q, wParam);
-          if (encoded) {
-            const response = new Response(encoded, {
-              headers: {
-                'Content-Type': type,
-                'Cache-Control': 'public, max-age=31536000, immutable',
-                'Vary': 'Accept, Save-Data'
-              }
-            });
-            const variantKey = type === 'image/avif' ? avifKey : webpKey;
-            await cache.put(variantKey, response.clone());
-            await trimCache(IMAGES_CACHE, 60);
-            break;
-          }
-        }
-      } catch { /* تجاهل الأخطاء بهدوء */ }
-    })());
-
-    return originalRes; // أعرض الأصل الآن (بدون تأخير)
-  } catch {
-    return originalRes;
+    } catch { /* تجاهل الخطأ وكمّل */ }
   }
+
+  // اضغط في الخلفية لباقي المستخدمين بدون تعطيل أول عرض
+  event.waitUntil((async () => {
+    try {
+      const blob = await originalRes.clone().blob();
+      if (blob.size < 8 * 1024) return; // تجاهل الصغير جدًا
+      const saveData = saveDataHeader;
+      const quality = saveData ? 0.6 : 0.72; // خفّض الجودة عند تفعيل توفير البيانات
+const webpBlob = await encodeToWebP(blob, quality, wParam);
+      if (webpBlob) {
+        const response = new Response(webpBlob, {
+          headers: {
+            'Content-Type': 'image/webp',
+            'Cache-Control': 'public, max-age=31536000, immutable',
+            'Vary': 'Accept, Save-Data'
+          }
+        });
+        await cache.put(webpKey, response.clone());
+        await trimCache(IMAGES_CACHE, 60);
+      }
+    } catch { /* تجاهل الأخطاء بهدوء */ }
+  })());
+
+  // أعرض الأصل الآن (بدون تأخير)
+  return originalRes;
 }
 
-async function encodeToFormat(blob, type /* 'image/webp' | 'image/avif' */, quality = 0.72, targetWidth = 0) {
+async function encodeToWebP(blob, quality = 0.72, targetWidth = 0) {
   try {
     if (typeof OffscreenCanvas === 'undefined' || typeof createImageBitmap === 'undefined') return null;
 
@@ -378,18 +423,10 @@ async function encodeToFormat(blob, type /* 'image/webp' | 'image/avif' */, qual
     const ctx = canvas.getContext('2d', { alpha: false, desynchronized: true });
     ctx.drawImage(bitmap, 0, 0, outW, outH);
 
-    let outBlob;
     if (typeof canvas.convertToBlob === 'function') {
-      outBlob = await canvas.convertToBlob({ type, quality });
-    } else {
-      outBlob = await new Promise(resolve => canvas.toBlob(resolve, type, quality));
+      return await canvas.convertToBlob({ type: 'image/webp', quality });
     }
-
-    // بعض المتصفحات تُرجع PNG إذا لم تدعم النوع المطلوب؛ تأكد من النوع
-    if (!outBlob || !outBlob.type || outBlob.type.toLowerCase() !== type) {
-      return null;
-    }
-    return outBlob;
+    return await new Promise(resolve => canvas.toBlob(resolve, 'image/webp', quality));
   } catch {
     return null;
   }
