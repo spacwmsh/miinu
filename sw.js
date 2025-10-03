@@ -1,5 +1,11 @@
 // Service Worker for Digital Menu (optimized)
-const VERSION = 'v2.3';
+// --- تحديثات رئيسية ---
+// 1) دعم صريح لـ AVIF بالإضافة إلى WebP عند التفاوض عبر Accept.
+// 2) توحيد مفاتيح الكاش للإصدارات المضغوطة (sw-im=<webp|avif>) واستخدامها نفسها في match+put.
+// 3) عتبات حجم أذكى حسب النوع (PNG/JPG) + احترام Save-Data.
+// 4) ضغط فوري على أول زيارة للصور الكبيرة، وخلفية للباقي.
+// --------------------------------------------
+const VERSION = 'v2.4';
 const STATIC_CACHE = `dm-static-${VERSION}`;
 const PAGES_CACHE  = `dm-pages-${VERSION}`;
 const IMAGES_CACHE = `dm-images-${VERSION}`;
@@ -37,6 +43,17 @@ function isHTMLRequest(request) {
 
 function sameOrigin(url) {
   return url.origin === self.location.origin;
+}
+
+const MODERN_ACCEPT_RE = /image\/(avif|webp)/i;
+const ACCEPTS_AVIF = /image\/avif/i;
+const ACCEPTS_WEBP = /image\/webp/i;
+
+function buildVariantKey(url, type /* 'image/avif' | 'image/webp' */) {
+  const u = new URL(url);
+  const param = type === 'image/avif' ? 'sw-im=avif' : 'sw-im=webp';
+  u.search += (u.search ? '&' : '?') + param;
+  return new Request(u.href, { cache: 'no-store' });
 }
 
 // ---------- Install ----------
@@ -117,7 +134,7 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // الصور: اضغطها إلى WebP (إن كان المتصفح يدعم) مع كاش ذكي
+  // الصور: اضغطها إلى WebP/AVIF (حسب دعم المتصفح) مع كاش ذكي
   if (req.destination === 'image') {
     event.respondWith(serveCompressedImage(event, req));
     return;
@@ -202,10 +219,10 @@ self.addEventListener('message', (event) => {
 async function serveCompressedImage(event, req) {
   const url = new URL(req.url);
   const accept = req.headers.get('accept') || '';
-const wParam = parseInt((url.searchParams.get('w') || '0'), 10) || 0;
+  const wParam = parseInt((url.searchParams.get('w') || '0'), 10) || 0;
 
-  // لا نضغط إذا كان المتصفح لا يقبل WebP أو لو كانت الصورة أصلاً WebP/AVIF/SVG/ICO
-  if (!/image\/webp/i.test(accept) || /\.(webp|avif|svg|ico)$/i.test(url.pathname)) {
+  // لا نضغط إذا كان المتصفح لا يقبل أي صيغة حديثة أو لو كانت الصورة أصلاً WebP/AVIF/SVG/ICO
+  if (!MODERN_ACCEPT_RE.test(accept) || /\.(webp|avif|svg|ico)$/i.test(url.pathname)) {
     // SWR كما هو
     const cache = await caches.open(IMAGES_CACHE);
     const cached = await cache.match(req, { ignoreSearch: true });
@@ -220,16 +237,27 @@ const wParam = parseInt((url.searchParams.get('w') || '0'), 10) || 0;
     return cached || net;
   }
 
-  // مفتاح خاص لنسخة WebP المضغوطة
-  const webpKey = new Request(
-    url.href + (url.search ? '&' : '?') + 'sw-webp=1',
-    { headers: req.headers, mode: req.mode, credentials: req.credentials, cache: 'no-store' }
-  );
   const cache = await caches.open(IMAGES_CACHE);
 
-  // إن وُجدت النسخة المضغوطة بالكاش أعرضها فوراً
-  const cachedWebp = await cache.match(webpKey, { ignoreSearch: false });
-  if (cachedWebp) return cachedWebp;
+  // جرّب أولاً النسخة المفضلة حسب Accept (AVIF ثم WebP)
+  const prefersAvif = ACCEPTS_AVIF.test(accept);
+  const prefersWebP = ACCEPTS_WEBP.test(accept);
+
+  const avifKey = buildVariantKey(url.href, 'image/avif');
+  const webpKey = buildVariantKey(url.href, 'image/webp');
+
+  if (prefersAvif) {
+    const hit = await cache.match(avifKey, { ignoreSearch: false });
+    if (hit) return hit;
+    // لو ما في AVIF، جرّب WebP إن كان مقبولاً
+    if (prefersWebP) {
+      const hit2 = await cache.match(webpKey, { ignoreSearch: false });
+      if (hit2) return hit2;
+    }
+  } else if (prefersWebP) {
+    const hit = await cache.match(webpKey, { ignoreSearch: false });
+    if (hit) return hit;
+  }
 
   // اجلب الأصل سريعاً
   const originalRes = await fetch(req).catch(() => null);
@@ -244,83 +272,94 @@ const wParam = parseInt((url.searchParams.get('w') || '0'), 10) || 0;
     return originalRes;
   }
 
-  // --- جديد: إن كان Save-Data مفعّل، اضغط الآن وأعد WebP فورًا من أول زيارة
+  // نوع الصورة الأصلي للمساعدة في تحديد العتبة
+  const isPNG = /image\/png/i.test(contentType) || /\.png($|\?)/i.test(url.pathname);
+  const isJPG = /image\/jpe?g/i.test(contentType) || /\.(jpe?g)($|\?)/i.test(url.pathname);
+
+  // احترام وضع توفير البيانات
   const saveDataHeader = (req.headers.get('Save-Data') || '').toLowerCase() === 'on';
-  // إن كانت الصورة كبيرة وأجهزة المستخدم تدعم webp، اضغط الآن وأعِدّها فورًا
-const acceptHeader = (req.headers.get('Accept') || '').toLowerCase();
-const supportsWebP = acceptHeader.includes('image/avif') || acceptHeader.includes('image/webp');
 
-if (supportsWebP) {
-  const originalResClone = originalRes ? originalRes.clone() : await fetch(req, { cache: 'no-store' });
-  const blob = await originalResClone.blob();
-  if (blob.size >= 100 * 1024) { // > 100KB
-const webpBlob = await encodeToWebP(blob, 0.72, wParam);
-    if (webpBlob) {
-      const response = new Response(webpBlob, {
-        headers: {
-          'Content-Type': 'image/webp',
-          'Cache-Control': 'public, max-age=31536000, immutable',
-          'Vary': 'Accept, Save-Data'
-        }
-      });
-      const cache = await caches.open(IMAGES_CACHE);
-      const webpKey = new Request(req.url, { headers: { Accept: 'image/webp' } });
-      await cache.put(webpKey, response.clone());
-      await trimCache(IMAGES_CACHE, 60);
-      return response; // ← إرجاع المضغوط من أول مرة
+  // عتبات حجم أذكى
+  const baseMin = isPNG ? 30 * 1024 : isJPG ? 60 * 1024 : 80 * 1024;
+  const minSize = saveDataHeader ? Math.max(8 * 1024, Math.floor(baseMin * 0.6)) : baseMin;
+  const quality = saveDataHeader ? 0.6 : 0.72;
+
+  // سنحاول الضغط الفوري إن كانت الصورة أكبر من العتبة
+  try {
+    const originalResClone = originalRes.clone();
+    const blob = await originalResClone.blob();
+
+    // خزن الأصل للرجوع لاحقاً (حسب نفس الأصل) ثم قرّر الضغط
+    cache.put(req, originalRes.clone()).then(() => trimCache(IMAGES_CACHE, 60));
+
+    // تجاهل الأيقونات الصغيرة جداً
+    if (blob.size < 8 * 1024) {
+      return originalRes;
     }
-  }
-}
 
-  if (saveDataHeader) {
-    try {
-      const blob = await originalRes.clone().blob();
-      // لا تضغط الأيقونات الصغيرة جدًا لتوفير وقت المعالجة
-      if (blob.size >= 8 * 1024) {
-const webpBlob = await encodeToWebP(blob, 0.6, wParam);
-        if (webpBlob) {
-          const response = new Response(webpBlob, {
+    // ضغط فوري للصور الكبيرة
+    if (blob.size >= minSize) {
+      // حاول AVIF أولاً إن كان مفضلاً، ثم WebP؛ أو العكس حسب Accept
+      const order = [];
+      if (prefersAvif) order.push('image/avif');
+      if (prefersWebP) order.push('image/webp');
+      // لو كان يقبل الاثنتين لكن فضّلنا دائماً AVIF أولاً
+      if (!order.length) order.push('image/webp'); // احتياط
+
+      for (const type of order) {
+        const encoded = await encodeToFormat(blob, type, quality, wParam);
+        if (encoded) {
+          const response = new Response(encoded, {
             headers: {
-              'Content-Type': 'image/webp',
+              'Content-Type': type,
               'Cache-Control': 'public, max-age=31536000, immutable',
               'Vary': 'Accept, Save-Data'
             }
           });
-          await cache.put(webpKey, response.clone());
+          const variantKey = type === 'image/avif' ? avifKey : webpKey;
+          await cache.put(variantKey, response.clone());
           await trimCache(IMAGES_CACHE, 60);
-          return response; // ← أعد المضغوط فورًا
+          return response; // ← إرجاع المضغوط من أول مرة
         }
       }
-    } catch { /* تجاهل الخطأ وكمّل */ }
-  }
+    }
 
-  // اضغط في الخلفية لباقي المستخدمين بدون تعطيل أول عرض
-  event.waitUntil((async () => {
-    try {
-      const blob = await originalRes.clone().blob();
-      if (blob.size < 8 * 1024) return; // تجاهل الصغير جدًا
-      const saveData = saveDataHeader;
-      const quality = saveData ? 0.6 : 0.72; // خفّض الجودة عند تفعيل توفير البيانات
-const webpBlob = await encodeToWebP(blob, quality, wParam);
-      if (webpBlob) {
-        const response = new Response(webpBlob, {
-          headers: {
-            'Content-Type': 'image/webp',
-            'Cache-Control': 'public, max-age=31536000, immutable',
-            'Vary': 'Accept, Save-Data'
+    // لم نضغط الآن؟ اضغط في الخلفية وارجع الأصل فوراً
+    event.waitUntil((async () => {
+      try {
+        const saveData = saveDataHeader;
+        const q = saveData ? 0.6 : 0.72;
+        const order = [];
+        if (prefersAvif) order.push('image/avif');
+        if (prefersWebP) order.push('image/webp');
+        if (!order.length) order.push('image/webp');
+
+        for (const type of order) {
+          const encoded = await encodeToFormat(blob, type, q, wParam);
+          if (encoded) {
+            const response = new Response(encoded, {
+              headers: {
+                'Content-Type': type,
+                'Cache-Control': 'public, max-age=31536000, immutable',
+                'Vary': 'Accept, Save-Data'
+              }
+            });
+            const variantKey = type === 'image/avif' ? avifKey : webpKey;
+            await cache.put(variantKey, response.clone());
+            await trimCache(IMAGES_CACHE, 60);
+            break;
           }
-        });
-        await cache.put(webpKey, response.clone());
-        await trimCache(IMAGES_CACHE, 60);
-      }
-    } catch { /* تجاهل الأخطاء بهدوء */ }
-  })());
+        }
+      } catch { /* تجاهل الأخطاء بهدوء */ }
+    })());
 
-  // أعرض الأصل الآن (بدون تأخير)
-  return originalRes;
+    return originalRes; // أعرض الأصل الآن (بدون تأخير)
+  } catch {
+    return originalRes;
+  }
 }
 
-async function encodeToWebP(blob, quality = 0.72, targetWidth = 0) {
+async function encodeToFormat(blob, type /* 'image/webp' | 'image/avif' */, quality = 0.72, targetWidth = 0) {
   try {
     if (typeof OffscreenCanvas === 'undefined' || typeof createImageBitmap === 'undefined') return null;
 
@@ -339,10 +378,18 @@ async function encodeToWebP(blob, quality = 0.72, targetWidth = 0) {
     const ctx = canvas.getContext('2d', { alpha: false, desynchronized: true });
     ctx.drawImage(bitmap, 0, 0, outW, outH);
 
+    let outBlob;
     if (typeof canvas.convertToBlob === 'function') {
-      return await canvas.convertToBlob({ type: 'image/webp', quality });
+      outBlob = await canvas.convertToBlob({ type, quality });
+    } else {
+      outBlob = await new Promise(resolve => canvas.toBlob(resolve, type, quality));
     }
-    return await new Promise(resolve => canvas.toBlob(resolve, 'image/webp', quality));
+
+    // بعض المتصفحات تُرجع PNG إذا لم تدعم النوع المطلوب؛ تأكد من النوع
+    if (!outBlob || !outBlob.type || outBlob.type.toLowerCase() !== type) {
+      return null;
+    }
+    return outBlob;
   } catch {
     return null;
   }
