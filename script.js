@@ -69,14 +69,15 @@ function initializeApp() {
     }, { once: true });
   });
 
-  // Add intersection observer for animations
-  const observer = new IntersectionObserver((entries) => {
+  // Add intersection observer for animations (تشغيل مرة واحدة ثم إلغاء المراقبة)
+  const observer = new IntersectionObserver((entries, obs) => {
     entries.forEach((entry) => {
       if (entry.isIntersecting) {
         entry.target.style.animationPlayState = 'running';
+        obs.unobserve(entry.target); // مهم: لا تعاود تشغيلها عند الرجوع للأعلى
       }
     });
-  });
+  }, { rootMargin: '100px 0px', threshold: 0.01 });
 
   document.querySelectorAll('.menu-item').forEach((item) => {
     observer.observe(item);
@@ -594,7 +595,8 @@ function setupImageLazyLoading() {
         }
       });
     }, {
-      rootMargin: isSlow ? '80px 0px' : '200px 0px',
+      // ★ تكبير الهامش لمنع الوميض عند الرجوع للأعلى
+      rootMargin: isSlow ? '160px 0px' : '400px 0px',
       threshold: 0.01
     });
 
