@@ -30,6 +30,8 @@ document.addEventListener('DOMContentLoaded', function () {
   prioritizeAboveTheFoldImages();  // ★ إعطاء أولوية عالية لأول صور فوق الطيّة
   setupTouchGestures();
   initializeTooltips();
+// طلب تخزين دائم لتقليل احتمالات حذف الكاش من النظام
+if (navigator.storage?.persist) { navigator.storage.persist(); }
 
   // إعادة حساب الأولويات مرة واحدة بعد أول تمرير
   window.addEventListener('scroll', () => {
