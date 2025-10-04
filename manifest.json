@@ -2,7 +2,7 @@
     "name": "قائمة الطعام الإلكترونية - مطعم فاخر",
     "short_name": "قائمة المطعم",
     "description": "قائمة طعام إلكترونية فاخرة تضم أشهى الأطباق من جميع الأصناف",
-"start_url": "./index.html",
+    "start_url": "/",
     "display": "standalone",
     "background_color": "#667eea",
     "theme_color": "#667eea",
@@ -23,5 +23,4 @@
     "lang": "ar",
     "dir": "rtl"
 }
-
 
