@@ -20,7 +20,7 @@ const ratingModal = document.getElementById('ratingModal');
 // Initialize app
 document.addEventListener('DOMContentLoaded', function () {
   // أظهر اللودر مبكرًا (سيُخفى لحظة جاهزية أول صورة مهمة بدل تأخير ثابت)
-  showLoading();
+// applyDynamicImageWidthParam();
 
   initializeApp();
   setupEventListeners();
@@ -601,6 +601,7 @@ function setupImageLazyLoading() {
     images.forEach((img) => imageObserver.observe(img));
   }
 }
+function applyDynamicImageWidthParam() { /* disabled */ }
 
 // Keyboard navigation
 function handleKeyboardNavigation(e) {
