@@ -1,5 +1,5 @@
 // Service Worker for Digital Menu (optimized)
-const VERSION = 'v2.2';
+const VERSION = 'v2.5';
 const STATIC_CACHE = `dm-static-${VERSION}`;
 const PAGES_CACHE  = `dm-pages-${VERSION}`;
 const IMAGES_CACHE = `dm-images-${VERSION}`;
@@ -18,7 +18,7 @@ const STATIC_ASSETS = [
 ];
 
 // ---------- Helpers ----------
-async function trimCache(cacheName, maxItems = 60) {
+async function trimCache(cacheName, maxItems = 200) {
   const cache = await caches.open(cacheName);
   const keys = await cache.keys();
   if (keys.length > maxItems) {
@@ -211,7 +211,7 @@ async function serveCompressedImage(event, req) {
     const net = fetch(req)
       .then(async (res) => {
         if (res && (res.ok || res.type === 'opaque')) {
-          cache.put(req, res.clone()).then(() => trimCache(IMAGES_CACHE, 60));
+          cache.put(req, res.clone()).then(() => trimCache(IMAGES_CACHE, 200));
         }
         return res;
       })
@@ -239,7 +239,7 @@ async function serveCompressedImage(event, req) {
 
   const contentType = originalRes.headers.get('Content-Type') || '';
   if (originalRes.type === 'opaque' || /image\/(webp|avif|svg\+xml)/i.test(contentType)) {
-    cache.put(req, originalRes.clone()).then(() => trimCache(IMAGES_CACHE, 60));
+    cache.put(req, originalRes.clone()).then(() => trimCache(IMAGES_CACHE, 200));
     return originalRes;
   }
 
@@ -261,7 +261,7 @@ async function serveCompressedImage(event, req) {
             }
           });
           await cache.put(webpKey, response.clone());
-          await trimCache(IMAGES_CACHE, 60);
+          await trimCache(IMAGES_CACHE, 200);
           return response; // ← أعد المضغوط فورًا
         }
       }
@@ -285,7 +285,7 @@ async function serveCompressedImage(event, req) {
           }
         });
         await cache.put(webpKey, response.clone());
-        await trimCache(IMAGES_CACHE, 60);
+        await trimCache(IMAGES_CACHE, 200);
       }
     } catch { /* تجاهل الأخطاء بهدوء */ }
   })());
